@@ -139,7 +139,7 @@ export default function ResultsTable({
 
   return (
     <div className="table-wrapper">
-      <table className="data-table">
+      <table className="data-table" style={{ minWidth: '1360px' }}>
         <thead>
           <tr>
             <th style={{ width: '35px', textAlign: 'center' }}>
@@ -152,17 +152,17 @@ export default function ResultsTable({
               />
             </th>
             <th style={{ width: '35px', textAlign: 'center' }}>⭐</th>
-            <th style={{ width: '30px' }}></th>
-            <th>Website / Company</th>
-            <th style={{ width: '105px', textAlign: 'center' }}>Ahrefs DR</th>
-            <th style={{ width: '220px' }}>Contact Email</th>
-            <th style={{ width: '115px' }}>Category</th>
-            <th style={{ textAlign: 'center', width: '125px' }}>Speed Scores</th>
-            <th>Core Web Vitals</th>
-            <th>Top Bottleneck</th>
-            <th style={{ textAlign: 'center', width: '90px' }}>Priority</th>
+            <th style={{ width: '28px' }}></th>
+            <th style={{ minWidth: '210px' }}>Website / Company</th>
+            <th style={{ width: '90px', textAlign: 'center' }}>Ahrefs DR</th>
+            <th style={{ minWidth: '190px' }}>Contact Email</th>
+            <th style={{ width: '120px' }}>Category</th>
+            <th style={{ textAlign: 'center', width: '115px' }}>Speed Scores</th>
+            <th style={{ width: '145px' }}>Core Web Vitals</th>
+            <th style={{ minWidth: '190px' }}>Top Bottleneck</th>
+            <th style={{ textAlign: 'center', width: '85px' }}>Priority</th>
             <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
-            <th style={{ textAlign: 'right', width: '175px' }}>Actions</th>
+            <th style={{ textAlign: 'right', width: '145px' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
