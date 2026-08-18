@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import ApiKeyModal from './components/ApiKeyModal';
+import AhrefsBar from './components/AhrefsBar';
 import InputSection from './components/InputSection';
 import QueueController from './components/QueueController';
 import MetricsOverview from './components/MetricsOverview';
@@ -79,6 +80,7 @@ export default function App() {
   const [emailStatusMap, setEmailStatusMap] = useState({});
   const [drMap, setDrMap] = useState(() => loadDrMap());
   const [drStatusMap, setDrStatusMap] = useState({});
+  const [isFetchingAllDr, setIsFetchingAllDr] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [queueProgress, setQueueProgress] = useState(null);
 
@@ -89,8 +91,8 @@ export default function App() {
   const [activePitchLead, setActivePitchLead] = useState(null);
 
   // Filters & Sorting
-  const [filterTier, setFilterTier] = useState('all'); // 'all' | 'shortlisted' | 'poor' | 'average' | 'good' | 'error'
-  const [filterCategory, setFilterCategory] = useState('all'); // 'all' | 'saas' | 'ecommerce' | 'local' | 'agency' | 'other'
+  const [filterTier, setFilterTier] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('score_asc');
 
@@ -190,6 +192,23 @@ export default function App() {
       return;
     }
     await triggerAhrefsDrFetch(lead, ahrefsKey);
+  };
+
+  const handleFetchAllDr = async () => {
+    if (!ahrefsKey || !ahrefsKey.trim()) {
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+    setIsFetchingAllDr(true);
+    try {
+      for (const r of results) {
+        if (r.success && drMap[r.id] === undefined && drMap[r.domain] === undefined) {
+          await triggerAhrefsDrFetch(r, ahrefsKey);
+        }
+      }
+    } finally {
+      setIsFetchingAllDr(false);
+    }
   };
 
   // Queue Progress & Item completion handlers
@@ -397,7 +416,6 @@ export default function App() {
 
   const handleAhrefsKeySaved = (newAhrefsKey) => {
     setAhrefsKey(newAhrefsKey);
-    // If keys just configured and results exist, automatically fetch missing DRs
     if (newAhrefsKey && results.length > 0) {
       results.forEach(r => {
         if (drMap[r.id] === undefined && drMap[r.domain] === undefined) {
@@ -557,6 +575,15 @@ export default function App() {
       {/* VIEW 3: Main Audit Engine */}
       {activeView === 'audit' && (
         <>
+          {/* Top Dedicated Ahrefs Settings Bar */}
+          <AhrefsBar
+            ahrefsKey={ahrefsKey}
+            onSaveAhrefsKey={handleAhrefsKeySaved}
+            onFetchAllDr={handleFetchAllDr}
+            isFetchingDr={isFetchingAllDr}
+            hasResults={results.length > 0}
+          />
+
           {/* Input / Upload Section */}
           <InputSection
             onStartAudit={handleStartAudit}
