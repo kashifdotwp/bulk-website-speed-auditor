@@ -22,11 +22,13 @@ import {
   Loader2,
   Plus,
   RotateCw,
-  AlertCircle
+  AlertCircle,
+  TrendingUp
 } from 'lucide-react';
 import { buildMailmeteorSnippet } from '../services/pitchGenerator';
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from '../services/categories';
 import { scrapeWebsiteEmail } from '../services/emailFinder';
+import { getDrBadgeStyles } from '../services/ahrefsApi';
 
 export const LEAD_STATUS_OPTIONS = [
   { id: 'new', label: 'New Lead', color: '#64748b', bg: 'rgba(100, 116, 139, 0.1)' },
@@ -46,13 +48,16 @@ export default function ResultsTable({
   onChangeCategory,
   emailMap,
   emailStatusMap,
-  onReScrapeEmail,
+  drMap,
+  drStatusMap,
+  onFetchSingleDr,
   onChangeEmail,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
   onDeleteSingle,
-  onOpenPitchDrawer
+  onOpenPitchDrawer,
+  onOpenApiKeyModal
 }) {
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [copiedId, setCopiedId] = useState(null);
@@ -149,12 +154,13 @@ export default function ResultsTable({
             <th style={{ width: '35px', textAlign: 'center' }}>⭐</th>
             <th style={{ width: '30px' }}></th>
             <th>Website / Company</th>
-            <th style={{ width: '230px' }}>Contact Email</th>
-            <th style={{ width: '120px' }}>Category</th>
+            <th style={{ width: '105px', textAlign: 'center' }}>Ahrefs DR</th>
+            <th style={{ width: '220px' }}>Contact Email</th>
+            <th style={{ width: '115px' }}>Category</th>
             <th style={{ textAlign: 'center', width: '125px' }}>Speed Scores</th>
             <th>Core Web Vitals</th>
             <th>Top Bottleneck</th>
-            <th style={{ textAlign: 'center', width: '95px' }}>Priority</th>
+            <th style={{ textAlign: 'center', width: '90px' }}>Priority</th>
             <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
             <th style={{ textAlign: 'right', width: '175px' }}>Actions</th>
           </tr>
@@ -170,6 +176,11 @@ export default function ResultsTable({
             // Resolve Category
             const currentCatId = categoryMap?.[item.id] || autoDetectCategory(item);
             const currentCat = CATEGORY_DEFINITIONS.find(c => c.id === currentCatId) || CATEGORY_DEFINITIONS[4];
+
+            // Resolve Ahrefs DR
+            const drValue = drMap?.[item.id] ?? drMap?.[item.domain] ?? null;
+            const drStatus = drStatusMap?.[item.id] || drStatusMap?.[item.domain] || (drValue !== null ? 'done' : 'idle');
+            const drStyles = getDrBadgeStyles(drValue);
 
             // Resolve Email & Status
             const effectiveEmail = emailMap?.[item.id] ?? (item.originalData?.email || '');
@@ -215,7 +226,7 @@ export default function ResultsTable({
                       </a>
                     </div>
                   </td>
-                  <td colSpan={7} style={{ color: 'var(--status-critical)', fontSize: '0.8rem' }}>
+                  <td colSpan={8} style={{ color: 'var(--status-critical)', fontSize: '0.8rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <AlertTriangle size={15} />
                       <span>Audit Failed: {item.error || 'Domain unreachable'}</span>
@@ -304,6 +315,43 @@ export default function ResultsTable({
                     </div>
                   </td>
 
+                  {/* AHREFS DOMAIN RATING (DR) COLUMN */}
+                  <td style={{ textAlign: 'center' }}>
+                    {drStatus === 'fetching' ? (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.7rem', color: 'var(--accent-primary)' }}>
+                        <Loader2 size={11} className="spin-icon" />
+                        <span>DR...</span>
+                      </div>
+                    ) : drValue !== null ? (
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '0.25rem 0.55rem',
+                          borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: drStyles.color,
+                          background: drStyles.bg,
+                          border: `1px solid ${drStyles.border}`
+                        }}
+                        title={`Ahrefs Domain Rating: ${drValue}/100`}
+                      >
+                        {drStyles.label}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        style={{ fontSize: '0.675rem', padding: '0.2rem 0.45rem', color: 'var(--accent-primary)' }}
+                        onClick={() => onFetchSingleDr ? onFetchSingleDr(item) : onOpenApiKeyModal()}
+                        title="Fetch Domain Rating from Ahrefs"
+                      >
+                        <TrendingUp size={11} />
+                        <span>Get DR</span>
+                      </button>
+                    )}
+                  </td>
+
                   {/* EMAIL COLUMN: Auto-Scraped + Editable + Not Found State */}
                   <td>
                     {isEditingThisEmail ? (
@@ -347,7 +395,7 @@ export default function ResultsTable({
                             disabled={isScrapingThisEmail}
                           >
                             {isScrapingThisEmail ? <Loader2 size={11} className="spin-icon" /> : <Search size={11} />}
-                            <span>{isScrapingThisEmail ? 'Scraping...' : 'Rescan Site'}</span>
+                            <span>{isScrapingThisEmail ? 'Scraping...' : 'Rescan'}</span>
                           </button>
                           <button
                             type="button"
@@ -384,7 +432,7 @@ export default function ResultsTable({
                             alignItems: 'center',
                             gap: '0.25rem',
                             textDecoration: 'none',
-                            maxWidth: '160px',
+                            maxWidth: '150px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
@@ -396,7 +444,6 @@ export default function ResultsTable({
                         </a>
 
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                          {/* Copy Email */}
                           <button
                             type="button"
                             onClick={() => copyEmail(effectiveEmail, item.id)}
@@ -406,7 +453,6 @@ export default function ResultsTable({
                             {isEmailCopied ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
                           </button>
 
-                          {/* Edit Email */}
                           <button
                             type="button"
                             onClick={() => handleStartEditEmail(item.id, effectiveEmail)}
@@ -432,7 +478,7 @@ export default function ResultsTable({
                             gap: '0.2rem'
                           }}
                         >
-                          <AlertCircle size={10} color="#94a3b8" /> No Email Found
+                          <AlertCircle size={10} color="#94a3b8" /> No Email
                         </span>
 
                         <button
@@ -442,7 +488,7 @@ export default function ResultsTable({
                           onClick={() => handleStartEditEmail(item.id, '')}
                           title="Manually enter contact email"
                         >
-                          <Plus size={10} /> Add Email
+                          <Plus size={10} /> Add
                         </button>
 
                         <button
@@ -600,7 +646,7 @@ export default function ResultsTable({
                         type="button"
                         className="btn btn-primary"
                         style={{ fontSize: '0.725rem', padding: '0.3rem 0.55rem' }}
-                        onClick={() => onOpenPitchDrawer({ ...item, resolvedEmail: effectiveEmail })}
+                        onClick={() => onOpenPitchDrawer({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue })}
                       >
                         <Mail size={12} />
                         <span>Pitch</span>
@@ -634,14 +680,15 @@ export default function ResultsTable({
                 {/* Expanded Row Diagnostics */}
                 {isExpanded && (
                   <tr>
-                    <td colSpan={12} style={{ background: 'var(--bg-primary)', padding: '1.25rem 1.5rem 1.5rem 2.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td colSpan={13} style={{ background: 'var(--bg-primary)', padding: '1.25rem 1.5rem 1.5rem 2.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         {/* Header Link */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                           <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>Official Google Lighthouse Analysis — {item.domain}</span>
+                            <span>Official Analysis — {item.domain}</span>
                             <span className="badge badge-indigo">📱 Mobile: {mScore}/100</span>
                             {dScore !== null && <span className="badge badge-cyan">💻 Desktop: {dScore}/100</span>}
+                            {drValue !== null && <span className="badge" style={{ background: drStyles.bg, color: drStyles.color, border: `1px solid ${drStyles.border}` }}>📈 Ahrefs DR: {drValue}/100</span>}
                             <span className="badge" style={{ background: currentCat.bg, color: currentCat.color }}>{currentCat.badge}</span>
                             {effectiveEmail && <span className="badge badge-cyan"><Mail size={11} style={{ marginRight: '3px' }} /> {effectiveEmail}</span>}
                           </h4>

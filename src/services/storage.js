@@ -6,11 +6,13 @@ import { DEFAULT_GOOGLE_API_KEY } from './psiApi';
 
 const STORAGE_KEYS = {
   API_KEY: 'nmd_psi_api_key',
+  AHREFS_API_KEY: 'nmd_ahrefs_api_key',
   AUDIT_RESULTS: 'nmd_audit_results_v2',
   SHORTLISTED_IDS: 'nmd_shortlisted_ids',
   STATUS_MAP: 'nmd_lead_status_map',
   CATEGORY_MAP: 'nmd_lead_category_map',
   EMAIL_MAP: 'nmd_lead_email_map',
+  DR_MAP: 'nmd_ahrefs_dr_map',
   CONCURRENCY: 'nmd_concurrency_pref',
   DELAY_GAP: 'nmd_delay_gap_pref',
   STRATEGY: 'nmd_strategy_pref',
@@ -32,6 +34,22 @@ export function loadApiKey() {
     return key !== null ? key : DEFAULT_GOOGLE_API_KEY;
   } catch {
     return DEFAULT_GOOGLE_API_KEY;
+  }
+}
+
+export function saveAhrefsApiKey(key) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.AHREFS_API_KEY, key || '');
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadAhrefsApiKey() {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.AHREFS_API_KEY) || '';
+  } catch {
+    return '';
   }
 }
 
@@ -120,10 +138,28 @@ export function loadEmailMap() {
   }
 }
 
+export function saveDrMap(drMap) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DR_MAP, JSON.stringify(drMap || {}));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadDrMap() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DR_MAP);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function clearAuditResults() {
   try {
     localStorage.removeItem(STORAGE_KEYS.AUDIT_RESULTS);
     localStorage.removeItem(STORAGE_KEYS.SHORTLISTED_IDS);
+    localStorage.removeItem(STORAGE_KEYS.DR_MAP);
   } catch (e) {
     console.error('Storage error', e);
   }
@@ -156,10 +192,10 @@ export function loadPreferences() {
 /**
  * Creates a complete JSON project backup bundle (Zero Data Loss)
  */
-export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, apiKey) {
+export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey) {
   const backupData = {
     appName: 'Needle Mover Detector',
-    version: '2.2.0',
+    version: '2.3.0',
     exportedAt: new Date().toISOString(),
     itemCount: results.length,
     results,
@@ -167,7 +203,9 @@ export function exportProjectBackup(results, shortlistedIds, leadStatusMap, cate
     leadStatusMap,
     categoryMap: categoryMap || {},
     emailMap: emailMap || {},
-    hasApiKey: Boolean(apiKey)
+    drMap: drMap || {},
+    hasApiKey: Boolean(apiKey),
+    hasAhrefsKey: Boolean(ahrefsKey)
   };
 
   const jsonStr = JSON.stringify(backupData, null, 2);
@@ -203,6 +241,7 @@ export function parseProjectBackupFile(file) {
           leadStatusMap: parsed.leadStatusMap || {},
           categoryMap: parsed.categoryMap || {},
           emailMap: parsed.emailMap || {},
+          drMap: parsed.drMap || {},
           exportedAt: parsed.exportedAt
         });
       } catch (err) {

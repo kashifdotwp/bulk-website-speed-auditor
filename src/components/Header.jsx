@@ -11,7 +11,8 @@ import {
   HardDrive,
   LayoutDashboard,
   Sun,
-  Moon
+  Moon,
+  TrendingUp
 } from 'lucide-react';
 
 export default function Header({
@@ -22,12 +23,15 @@ export default function Header({
   strategy,
   onStrategyChange,
   apiKey,
+  ahrefsKey,
   onOpenApiKeyModal,
   onOpenBackupModal,
   onClearData,
   hasData,
   isRunning
 }) {
+  const hasAnyKey = Boolean(apiKey || ahrefsKey);
+
   return (
     <header className="header-nav" style={{ flexWrap: 'wrap', gap: '0.85rem' }}>
       <div className="brand-wrapper">
@@ -38,11 +42,11 @@ export default function Header({
           <div className="brand-title">
             Needle Mover Detector
             <span className="badge badge-indigo" style={{ fontSize: '0.675rem', padding: '0.15rem 0.45rem' }}>
-              PRO v2.0
+              PRO v2.3
             </span>
           </div>
           <div className="brand-subtitle">
-            Bulk Website Speed Auditor & Cold Outreach Engine
+            Bulk Speed Auditor & Ahrefs DR Outreach Engine
           </div>
         </div>
       </div>
@@ -114,16 +118,17 @@ export default function Header({
           className="btn btn-secondary"
           style={{ fontSize: '0.8rem', padding: '0.45rem 0.8rem' }}
           onClick={onOpenApiKeyModal}
+          title="Configure Ahrefs DR & Google PageSpeed API Keys"
         >
-          {apiKey ? (
+          {hasAnyKey ? (
             <>
               <ShieldCheck size={14} color="#059669" />
-              <span>Key Active</span>
+              <span>{ahrefsKey ? 'Ahrefs + PSI Active' : 'Key Active'}</span>
             </>
           ) : (
             <>
               <Key size={14} />
-              <span>API Key</span>
+              <span>API Keys</span>
             </>
           )}
         </button>

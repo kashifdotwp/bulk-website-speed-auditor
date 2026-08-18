@@ -9,7 +9,10 @@ export default function ProjectDataModal({
   shortlistedIds,
   leadStatusMap,
   categoryMap,
+  emailMap,
+  drMap,
   apiKey,
+  ahrefsKey,
   onRestoreProject
 }) {
   const [restoreStatus, setRestoreStatus] = useState(null);
@@ -18,7 +21,7 @@ export default function ProjectDataModal({
   if (!isOpen) return null;
 
   const handleDownloadBackup = () => {
-    exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, apiKey);
+    exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey);
   };
 
   const handleFileUpload = async (file) => {
@@ -29,10 +32,17 @@ export default function ProjectDataModal({
       if (!parsed.success) {
         setRestoreStatus({ type: 'error', message: parsed.error });
       } else {
-        onRestoreProject(parsed.results, parsed.shortlistedIds, parsed.leadStatusMap, parsed.categoryMap);
+        onRestoreProject(
+          parsed.results,
+          parsed.shortlistedIds,
+          parsed.leadStatusMap,
+          parsed.categoryMap,
+          parsed.emailMap,
+          parsed.drMap
+        );
         setRestoreStatus({
           type: 'success',
-          message: `Successfully restored ${parsed.results.length} audited sites and ${parsed.shortlistedIds.size} shortlisted leads!`
+          message: `Successfully restored ${parsed.results.length} audited sites, Ahrefs DR data, and shortlisted leads!`
         });
         setTimeout(() => {
           onClose();
@@ -67,7 +77,7 @@ export default function ProjectDataModal({
                 Zero Data Loss & Project Persistence
               </h3>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Backup and restore your full lead database, scores, custom notes & outreach history.
+                Backup and restore your full lead database, Ahrefs DR, speed scores, and outreach history.
               </p>
             </div>
           </div>
@@ -92,7 +102,7 @@ export default function ProjectDataModal({
           }}>
             <ShieldCheck size={20} color="#059669" />
             <div>
-              <strong>Auto-Persistence is Active:</strong> All audit results and category tags are automatically saved in local browser storage on completion.
+              <strong>Auto-Persistence is Active:</strong> All audit results, Ahrefs DR scores, and emails are saved in local browser storage automatically.
             </div>
           </div>
 
@@ -113,7 +123,7 @@ export default function ProjectDataModal({
                 Download Full JSON Backup
               </h4>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                Saves all {results.length} audited sites, Core Web Vitals diagnostics, category tags, shortlisted stars, and status tags.
+                Saves all {results.length} audited sites, Ahrefs DR metrics, Core Web Vitals, and contact emails.
               </p>
             </div>
             <button
@@ -144,7 +154,7 @@ export default function ProjectDataModal({
                 Restore Project from File
               </h4>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                Upload a previously exported <code>.json</code> backup to restore past audit campaigns and categories.
+                Upload a previously exported <code>.json</code> backup to restore past audit campaigns and DR data.
               </p>
             </div>
 

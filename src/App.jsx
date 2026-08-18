@@ -15,9 +15,12 @@ import ProjectDataModal from './components/ProjectDataModal';
 import { AuditQueueEngine } from './services/queueEngine';
 import { autoDetectCategory } from './services/categories';
 import { scrapeWebsiteEmail } from './services/emailFinder';
+import { fetchDomainRating } from './services/ahrefsApi';
 import {
   saveApiKey,
   loadApiKey,
+  saveAhrefsApiKey,
+  loadAhrefsApiKey,
   saveAuditResults,
   loadAuditResults,
   clearAuditResults,
@@ -30,7 +33,9 @@ import {
   saveCategoryMap,
   loadCategoryMap,
   saveEmailMap,
-  loadEmailMap
+  loadEmailMap,
+  saveDrMap,
+  loadDrMap
 } from './services/storage';
 
 export default function App() {
@@ -59,6 +64,7 @@ export default function App() {
 
   // State Initialization
   const [apiKey, setApiKey] = useState(() => loadApiKey());
+  const [ahrefsKey, setAhrefsKey] = useState(() => loadAhrefsApiKey());
   const [prefs, setPrefs] = useState(() => loadPreferences());
   const [strategy, setStrategy] = useState(() => prefs.strategy || 'both');
   const [concurrency, setConcurrency] = useState(() => prefs.concurrency || 2);
@@ -70,7 +76,9 @@ export default function App() {
   const [leadStatusMap, setLeadStatusMap] = useState(() => loadLeadStatusMap());
   const [categoryMap, setCategoryMap] = useState(() => loadCategoryMap());
   const [emailMap, setEmailMap] = useState(() => loadEmailMap());
-  const [emailStatusMap, setEmailStatusMap] = useState({}); // { [id]: 'scanning' | 'found' | 'not_found' }
+  const [emailStatusMap, setEmailStatusMap] = useState({});
+  const [drMap, setDrMap] = useState(() => loadDrMap());
+  const [drStatusMap, setDrStatusMap] = useState({});
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [queueProgress, setQueueProgress] = useState(null);
 
@@ -119,12 +127,16 @@ export default function App() {
     saveEmailMap(emailMap);
   }, [emailMap]);
 
+  // Sync DR map
+  useEffect(() => {
+    saveDrMap(drMap);
+  }, [drMap]);
+
   // Auto Email Scraping Pipeline on Audit Completion
   const triggerAutoEmailScrape = async (lead) => {
     if (!lead || !lead.url || !lead.success) return;
     const id = lead.id;
 
-    // If an email is already present in original CSV or custom emailMap, skip
     if (emailMap[id] || lead.originalData?.email) {
       setEmailStatusMap(prev => ({ ...prev, [id]: 'found' }));
       return;
@@ -143,6 +155,41 @@ export default function App() {
     } catch {
       setEmailStatusMap(prev => ({ ...prev, [id]: 'not_found' }));
     }
+  };
+
+  // Ahrefs DR Fetch Pipeline on Audit Completion
+  const triggerAhrefsDrFetch = async (lead, currentKey = ahrefsKey) => {
+    if (!lead || !lead.domain || !currentKey || !currentKey.trim()) return;
+    const id = lead.id;
+    const domain = lead.domain;
+
+    if (drMap[id] !== undefined || drMap[domain] !== undefined) return;
+
+    setDrStatusMap(prev => ({ ...prev, [id]: 'fetching', [domain]: 'fetching' }));
+
+    try {
+      const res = await fetchDomainRating(domain, currentKey);
+      if (res.success && res.domainRating !== null) {
+        setDrMap(prev => ({
+          ...prev,
+          [id]: res.domainRating,
+          [domain]: res.domainRating
+        }));
+        setDrStatusMap(prev => ({ ...prev, [id]: 'done', [domain]: 'done' }));
+      } else {
+        setDrStatusMap(prev => ({ ...prev, [id]: 'error', [domain]: 'error' }));
+      }
+    } catch {
+      setDrStatusMap(prev => ({ ...prev, [id]: 'error', [domain]: 'error' }));
+    }
+  };
+
+  const handleFetchSingleDr = async (lead) => {
+    if (!ahrefsKey || !ahrefsKey.trim()) {
+      setIsApiKeyModalOpen(true);
+      return;
+    }
+    await triggerAhrefsDrFetch(lead, ahrefsKey);
   };
 
   // Queue Progress & Item completion handlers
@@ -166,8 +213,13 @@ export default function App() {
           return [newItem, ...prev];
         });
 
-        // Automatically scan website for contact email
+        // 1. Auto Email Scan
         triggerAutoEmailScrape(newItem);
+
+        // 2. Auto Ahrefs DR Fetch (if Ahrefs key configured)
+        if (ahrefsKey) {
+          triggerAhrefsDrFetch(newItem, ahrefsKey);
+        }
       },
       onFinish: () => {
         // Finished
@@ -219,6 +271,11 @@ export default function App() {
       delete next[id];
       return next;
     });
+    setDrMap(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const handleDeleteSelected = () => {
@@ -235,7 +292,7 @@ export default function App() {
         for (const id of selectedIds) delete next[id];
         return next;
       });
-      setEmailStatusMap(prev => {
+      setDrMap(prev => {
         const next = { ...prev };
         for (const id of selectedIds) delete next[id];
         return next;
@@ -281,6 +338,8 @@ export default function App() {
       setCategoryMap({});
       setEmailMap({});
       setEmailStatusMap({});
+      setDrMap({});
+      setDrStatusMap({});
       setSelectedIds(new Set());
       setQueueProgress(null);
     }
@@ -320,18 +379,31 @@ export default function App() {
     }));
   };
 
-  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap) => {
+  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap, newDrMap) => {
     setResults(newResults);
     setShortlistedIds(newShortlisted);
     setLeadStatusMap(newStatusMap);
     if (newCategoryMap) setCategoryMap(newCategoryMap);
     if (newEmailMap) setEmailMap(newEmailMap);
+    if (newDrMap) setDrMap(newDrMap);
   };
 
   const handleKeySaved = (newKey) => {
     setApiKey(newKey);
     if (queueEngineRef.current) {
       queueEngineRef.current.setApiKey(newKey);
+    }
+  };
+
+  const handleAhrefsKeySaved = (newAhrefsKey) => {
+    setAhrefsKey(newAhrefsKey);
+    // If keys just configured and results exist, automatically fetch missing DRs
+    if (newAhrefsKey && results.length > 0) {
+      results.forEach(r => {
+        if (drMap[r.id] === undefined && drMap[r.domain] === undefined) {
+          triggerAhrefsDrFetch(r, newAhrefsKey);
+        }
+      });
     }
   };
 
@@ -403,8 +475,13 @@ export default function App() {
     list.sort((a, b) => {
       const aScore = a.mobile?.score ?? a.score ?? 999;
       const bScore = b.mobile?.score ?? b.score ?? 999;
+      const aDr = drMap[a.id] ?? drMap[a.domain] ?? -1;
+      const bDr = drMap[b.id] ?? drMap[b.domain] ?? -1;
+
       if (sortBy === 'score_asc') return aScore - bScore;
       if (sortBy === 'score_desc') return bScore - aScore;
+      if (sortBy === 'dr_desc') return bDr - aDr;
+      if (sortBy === 'dr_asc') return (aDr === -1 ? 999 : aDr) - (bDr === -1 ? 999 : bDr);
       if (sortBy === 'lcp_desc') return (b.metrics?.lcp?.value || 0) - (a.metrics?.lcp?.value || 0);
       if (sortBy === 'tbt_desc') return (b.metrics?.tbt?.value || 0) - (a.metrics?.tbt?.value || 0);
       if (sortBy === 'domain_asc') return (a.domain || '').localeCompare(b.domain || '');
@@ -412,7 +489,7 @@ export default function App() {
     });
 
     return list;
-  }, [results, filterTier, filterCategory, searchQuery, sortBy, shortlistedIds, categoryMap, emailMap]);
+  }, [results, filterTier, filterCategory, searchQuery, sortBy, shortlistedIds, categoryMap, emailMap, drMap]);
 
   // Counts for Filter Chips
   const filterCounts = useMemo(() => {
@@ -456,6 +533,7 @@ export default function App() {
         strategy={strategy}
         onStrategyChange={handleStrategyChange}
         apiKey={apiKey}
+        ahrefsKey={ahrefsKey}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         onOpenBackupModal={() => setIsBackupModalOpen(true)}
         onClearData={handleClearData}
@@ -533,13 +611,16 @@ export default function App() {
                 onChangeCategory={handleChangeCategory}
                 emailMap={emailMap}
                 emailStatusMap={emailStatusMap}
-                onReScrapeEmail={triggerAutoEmailScrape}
+                drMap={drMap}
+                drStatusMap={drStatusMap}
+                onFetchSingleDr={handleFetchSingleDr}
                 onChangeEmail={handleChangeEmail}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
                 onDeleteSingle={handleDeleteSingle}
                 onOpenPitchDrawer={(lead) => setActivePitchLead(lead)}
+                onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
               />
             </div>
           )}
@@ -552,6 +633,8 @@ export default function App() {
         onClose={() => setIsApiKeyModalOpen(false)}
         currentApiKey={apiKey}
         onKeySaved={handleKeySaved}
+        currentAhrefsKey={ahrefsKey}
+        onAhrefsKeySaved={handleAhrefsKeySaved}
       />
 
       <ProjectDataModal
@@ -562,7 +645,9 @@ export default function App() {
         leadStatusMap={leadStatusMap}
         categoryMap={categoryMap}
         emailMap={emailMap}
+        drMap={drMap}
         apiKey={apiKey}
+        ahrefsKey={ahrefsKey}
         onRestoreProject={handleRestoreProject}
       />
 
@@ -580,6 +665,7 @@ export default function App() {
         results={filterTier === 'shortlisted' ? filteredResults : results}
         emailMap={emailMap}
         categoryMap={categoryMap}
+        drMap={drMap}
         defaultAngle={selectedPitchAngle}
       />
     </div>

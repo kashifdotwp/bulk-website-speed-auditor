@@ -47,7 +47,7 @@ function cleanScrapedEmails(rawHtml, domain) {
   return validEmails;
 }
 
-// Custom Vite plugin for live SERP search, real speed auditing, and email scraping
+// Custom Vite plugin for live SERP search, real speed auditing, email scraping, and Ahrefs DR
 function apiMiddlewarePlugin() {
   return {
     name: 'api-middleware',
@@ -109,7 +109,6 @@ function apiMiddlewarePlugin() {
                       const rawTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&').trim() : domain;
                       const rawSnippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&').trim() : '';
 
-                      // Extract clean company name from title
                       let company = rawTitle.split(/[-–|:•]/)[0].trim();
                       if (!company || company.length > 50) {
                         company = domain.replace(/\.(com|org|net|co\.uk|io|ai|biz|us|law)$/i, '').replace(/[-_]/g, ' ');
@@ -147,7 +146,90 @@ function apiMiddlewarePlugin() {
           return;
         }
 
-        // 2. LIVE EMAIL SCRAPER ENDPOINT
+        // 2. LIVE AHREFS DOMAIN RATING (DR) ENDPOINT
+        if (url.pathname === '/api/ahrefs-dr' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const { domain, apiKey } = JSON.parse(body || '{}');
+              if (!domain) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ error: 'Domain is required' }));
+              }
+
+              const cleanDomain = domain
+                .replace(/^https?:\/\//i, '')
+                .replace(/^www\./i, '')
+                .split('/')[0]
+                .trim()
+                .toLowerCase();
+
+              if (!apiKey || !apiKey.trim()) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ error: 'Ahrefs API Key is required' }));
+              }
+
+              const token = apiKey.trim();
+              const urlFree = `https://api.ahrefs.com/v3/public/domain-rating-free?target=${encodeURIComponent(cleanDomain)}`;
+
+              let ahrefsRes = await fetch(urlFree, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Accept': 'application/json'
+                }
+              });
+
+              if (!ahrefsRes.ok) {
+                const today = new Date().toISOString().slice(0, 10);
+                const urlStandard = `https://api.ahrefs.com/v3/site-explorer/domain-rating?target=${encodeURIComponent(cleanDomain)}&date=${today}`;
+                ahrefsRes = await fetch(urlStandard, {
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                  }
+                });
+              }
+
+              if (ahrefsRes.ok) {
+                const data = await ahrefsRes.json();
+                const dr = data.domain_rating?.domain_rating ??
+                           data.domain_rating ??
+                           data.domainRating ??
+                           data.dr ??
+                           data.rating ??
+                           (typeof data === 'number' ? data : null);
+
+                const ahrefsRank = data.domain_rating?.ahrefs_rank ?? data.ahrefs_rank ?? null;
+
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  success: true,
+                  domain: cleanDomain,
+                  domainRating: dr !== null ? Math.round(Number(dr)) : null,
+                  ahrefsRank
+                }));
+              } else {
+                const errorText = await ahrefsRes.text().catch(() => '');
+                res.statusCode = ahrefsRes.status;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({
+                  success: false,
+                  error: `Ahrefs API returned HTTP ${ahrefsRes.status}: ${errorText}`
+                }));
+              }
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // 3. LIVE EMAIL SCRAPER ENDPOINT
         if (url.pathname === '/api/scrape-email' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -211,7 +293,7 @@ function apiMiddlewarePlugin() {
           return;
         }
 
-        // 3. LIVE DIRECT SPEED AUDITOR ENDPOINT
+        // 4. LIVE DIRECT SPEED AUDITOR ENDPOINT
         if (url.pathname === '/api/live-audit' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });

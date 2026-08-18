@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Flame, Zap, CheckCircle2, AlertCircle, ArrowUpDown, Download, Star, Trash2, Tag } from 'lucide-react';
+import { Search, Flame, Zap, CheckCircle2, AlertCircle, ArrowUpDown, Download, Star, Trash2, Tag, TrendingUp } from 'lucide-react';
 import { CATEGORY_DEFINITIONS } from '../services/categories';
 
 export default function FilterBar({
@@ -113,8 +113,10 @@ export default function FilterBar({
                 cursor: 'pointer'
               }}
             >
-              <option value="score_asc">Lowest Score First (Worst Leads 🔥)</option>
-              <option value="score_desc">Highest Score First</option>
+              <option value="score_asc">Lowest Speed Score (Worst Leads 🔥)</option>
+              <option value="score_desc">Highest Speed Score</option>
+              <option value="dr_desc">📈 Ahrefs DR: Highest First (High Authority)</option>
+              <option value="dr_asc">📉 Ahrefs DR: Lowest First (Low Authority)</option>
               <option value="lcp_desc">Slowest LCP First</option>
               <option value="tbt_desc">Highest Blocking Time (TBT)</option>
               <option value="domain_asc">Domain (A to Z)</option>

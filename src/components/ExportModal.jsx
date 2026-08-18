@@ -9,6 +9,7 @@ export default function ExportModal({
   results,
   emailMap,
   categoryMap,
+  drMap,
   defaultAngle = 'conversion_risk'
 }) {
   const [selectedAngle, setSelectedAngle] = useState(defaultAngle);
@@ -17,13 +18,13 @@ export default function ExportModal({
   if (!isOpen || !results || results.length === 0) return null;
 
   const handleDownload = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {});
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {});
     const dateStr = new Date().toISOString().slice(0, 10);
     downloadCsvFile(csvContent, `mailmeteor_speed_leads_${dateStr}.csv`);
   };
 
   const handleCopy = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {});
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {});
     navigator.clipboard.writeText(csvContent);
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2000);
@@ -52,7 +53,7 @@ export default function ExportModal({
                 Export for Mailmeteor & Cold Outreach
               </h3>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {results.length} total audited lead rows with scraped/edited emails formatted for Mailmeteor
+                {results.length} total audited lead rows with Ahrefs DR & contact emails formatted for Mailmeteor
               </p>
             </div>
           </div>
@@ -114,6 +115,7 @@ export default function ExportModal({
               <span className="badge badge-cyan">Email</span>
               <span className="badge badge-indigo">Company</span>
               <span className="badge badge-indigo">Category</span>
+              <span className="badge badge-cyan">Ahrefs_DR</span>
               <span className="badge badge-indigo">Domain</span>
               <span className="badge badge-indigo">Website_URL</span>
               <span className="badge badge-indigo">Mobile_Score</span>
