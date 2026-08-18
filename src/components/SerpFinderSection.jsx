@@ -1,30 +1,34 @@
 import React, { useState } from 'react';
-import { Search, Globe, Sparkles, Filter, Play, CheckSquare, Square, Copy, Check, ArrowRight, ExternalLink, Loader2 } from 'lucide-react';
-import { searchSerpLeads, POPULAR_QUERY_TEMPLATES } from '../services/serpFinder';
+import { Search, Globe, Sparkles, Filter, Play, CheckSquare, Square, Copy, Check, ArrowRight, ExternalLink, Loader2, AlertCircle, Zap } from 'lucide-react';
+import { searchSerpLeads, POPULAR_QUERY_TEMPLATES, QUERY_CATEGORIES } from '../services/serpFinder';
 
 export default function SerpFinderSection({
   onStartAuditFromSerp,
   isRunning
 }) {
-  const [query, setQuery] = useState('personal injury lawyer in ohio');
-  const [limit, setLimit] = useState(15);
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(20);
   const [excludeDirectories, setExcludeDirectories] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [discoveredLeads, setDiscoveredLeads] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [copiedDomains, setCopiedDomains] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
+  const [presetFilter, setPresetFilter] = useState('all');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handleSearch = async (targetQuery = query) => {
     if (!targetQuery || targetQuery.trim().length === 0) return;
     setIsLoading(true);
     setSearchDone(true);
+    setErrorMsg('');
     try {
       const results = await searchSerpLeads(targetQuery, limit, excludeDirectories);
       setDiscoveredLeads(results);
       setSelectedIds(new Set(results.map(r => r.id)));
     } catch (err) {
       console.error(err);
+      setErrorMsg(err.message || 'Search request failed. Try again or adjust query.');
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +65,10 @@ export default function SerpFinderSection({
     setTimeout(() => setCopiedDomains(false), 1800);
   };
 
+  const filteredPresets = presetFilter === 'all'
+    ? POPULAR_QUERY_TEMPLATES
+    : POPULAR_QUERY_TEMPLATES.filter(t => t.category === presetFilter);
+
   return (
     <div className="glass-panel" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* Header */}
@@ -68,8 +76,8 @@ export default function SerpFinderSection({
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{
-              width: '32px',
-              height: '32px',
+              width: '34px',
+              height: '34px',
               borderRadius: '8px',
               background: 'linear-gradient(135deg, #0284c7, #4f46e5)',
               display: 'flex',
@@ -77,34 +85,56 @@ export default function SerpFinderSection({
               justifyContent: 'center',
               color: 'white'
             }}>
-              <Search size={16} />
+              <Search size={17} />
             </div>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               Live SERP Lead Discovery
             </h3>
             <span className="badge badge-cyan" style={{ fontSize: '0.7rem' }}>
-              Real Search Scraping
+              Multi-Engine
             </span>
           </div>
-          <p style={{ fontSize: '0.775rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
-            Search local business keywords (e.g. <em>"personal injury lawyer in ohio"</em>) to pull genuine ranking websites and bulk audit their mobile speeds.
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', maxWidth: '700px' }}>
+            Search <strong>any query</strong> — local businesses, SaaS tools, e-commerce brands, agencies, niche keywords — to discover live ranking websites and bulk audit their speed.
           </p>
         </div>
+      </div>
 
-        {/* Popular Preset Chips */}
+      {/* Preset Category Filter Tabs */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>Quick Presets:</span>
-          {POPULAR_QUERY_TEMPLATES.map((tmpl, idx) => (
+          <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontWeight: 600 }}>Quick Presets:</span>
+          {QUERY_CATEGORIES.map(cat => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`filter-chip ${presetFilter === cat.id ? 'active' : ''}`}
+              style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}
+              onClick={() => setPresetFilter(cat.id)}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Preset Chips */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+          {filteredPresets.map((tmpl, idx) => (
             <button
               key={idx}
               type="button"
               className="filter-chip"
-              style={{ fontSize: '0.725rem', padding: '0.25rem 0.55rem' }}
+              style={{
+                fontSize: '0.725rem',
+                padding: '0.25rem 0.6rem',
+                transition: 'all 0.15s ease'
+              }}
               onClick={() => {
                 setQuery(tmpl.query);
                 handleSearch(tmpl.query);
               }}
               disabled={isLoading || isRunning}
+              title={`Search: "${tmpl.query}"`}
             >
               {tmpl.label}
             </button>
@@ -114,13 +144,13 @@ export default function SerpFinderSection({
 
       {/* Search Input Bar */}
       <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1', minWidth: '280px', position: 'relative' }}>
+        <div style={{ flex: '1', minWidth: '300px', position: 'relative' }}>
           <Search className="search-icon" />
           <input
             type="text"
             className="search-input"
             style={{ width: '100%', padding: '0.7rem 1rem 0.7rem 2.4rem', fontSize: '0.9rem' }}
-            placeholder="e.g. personal injury lawyer in ohio, cosmetic dentist austin, roofing contractor chicago..."
+            placeholder="Type any search query: e.g. 'roofing contractor chicago', 'best CRM software', 'AI writing tools'..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -147,8 +177,9 @@ export default function SerpFinderSection({
           >
             <option value="10">Top 10 Sites</option>
             <option value="15">Top 15 Sites</option>
-            <option value="25">Top 25 Sites</option>
-            <option value="40">Top 40 Sites</option>
+            <option value="20">Top 20 Sites</option>
+            <option value="30">Top 30 Sites</option>
+            <option value="50">Top 50 Sites</option>
           </select>
         </div>
 
@@ -169,7 +200,7 @@ export default function SerpFinderSection({
             onChange={e => setExcludeDirectories(e.target.checked)}
             disabled={isLoading || isRunning}
           />
-          <span>Exclude Yelp / Directories</span>
+          <span>Exclude Directories & Social</span>
         </label>
 
         {/* Find Button */}
@@ -180,10 +211,28 @@ export default function SerpFinderSection({
           onClick={() => handleSearch()}
           disabled={isLoading || isRunning || !query.trim()}
         >
-          {isLoading ? <Loader2 size={15} className="pulse-dot" /> : <Search size={15} />}
-          <span>{isLoading ? 'Searching Live SERP...' : 'Find Sites'}</span>
+          {isLoading ? <Loader2 size={15} className="spin-icon" /> : <Zap size={15} />}
+          <span>{isLoading ? 'Searching Multi-Engine...' : 'Discover Sites'}</span>
         </button>
       </div>
+
+      {/* Error Message */}
+      {errorMsg && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.75rem 1rem',
+          background: 'var(--status-critical-bg)',
+          border: '1px solid var(--status-critical-border)',
+          borderRadius: 'var(--radius-md)',
+          color: 'var(--status-critical)',
+          fontSize: '0.8rem'
+        }}>
+          <AlertCircle size={16} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {/* Discovered Leads List */}
       {discoveredLeads.length > 0 && (
@@ -198,7 +247,19 @@ export default function SerpFinderSection({
         }}>
           {/* Controls Bar */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <span style={{
+                fontSize: '0.825rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}>
+                <Globe size={15} color="var(--accent-cyan)" />
+                {discoveredLeads.length} Websites Discovered
+              </span>
+
               <button
                 type="button"
                 className="btn btn-secondary"
@@ -234,7 +295,7 @@ export default function SerpFinderSection({
           </div>
 
           {/* Cards Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem', maxHeight: '420px', overflowY: 'auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '0.75rem', maxHeight: '460px', overflowY: 'auto' }}>
             {discoveredLeads.map((item) => {
               const isSelected = selectedIds.has(item.id);
               return (
@@ -255,14 +316,21 @@ export default function SerpFinderSection({
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0, flex: 1 }}>
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => {}}
+                        style={{ flexShrink: 0 }}
                       />
-                      <strong style={{ fontSize: '0.825rem', color: 'var(--text-primary)' }}>
-                        {item.originalData.company}
+                      <strong style={{
+                        fontSize: '0.825rem',
+                        color: 'var(--text-primary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {item.originalData?.company || item.domain}
                       </strong>
                     </div>
                     <a
@@ -270,7 +338,7 @@ export default function SerpFinderSection({
                       target="_blank"
                       rel="noreferrer"
                       onClick={e => e.stopPropagation()}
-                      style={{ color: 'var(--text-muted)' }}
+                      style={{ color: 'var(--text-muted)', flexShrink: 0, marginLeft: '0.35rem' }}
                     >
                       <ExternalLink size={13} />
                     </a>
@@ -280,9 +348,33 @@ export default function SerpFinderSection({
                     {item.domain}
                   </span>
 
-                  <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)', lineHeight: '1.35', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    {item.snippet}
-                  </p>
+                  {item.snippet && (
+                    <p style={{
+                      fontSize: '0.725rem',
+                      color: 'var(--text-secondary)',
+                      lineHeight: '1.35',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {item.snippet}
+                    </p>
+                  )}
+
+                  {item.title && item.title !== item.domain && (
+                    <p style={{
+                      fontSize: '0.675rem',
+                      color: 'var(--text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontStyle: 'italic'
+                    }}>
+                      {item.title}
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -290,9 +382,22 @@ export default function SerpFinderSection({
         </div>
       )}
 
-      {searchDone && discoveredLeads.length === 0 && !isLoading && (
-        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
-          No direct ranking business sites found for this query. Try a broader city query like <em>"injury lawyer ohio"</em>.
+      {searchDone && discoveredLeads.length === 0 && !isLoading && !errorMsg && (
+        <div style={{
+          textAlign: 'center',
+          padding: '2rem',
+          color: 'var(--text-muted)',
+          background: 'var(--bg-primary)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border-subtle)'
+        }}>
+          <AlertCircle size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.5 }} />
+          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+            No websites found for this query
+          </p>
+          <p style={{ fontSize: '0.8rem' }}>
+            Try a more specific or different query. Examples: <em>"best CRM software"</em>, <em>"cosmetic dentist austin"</em>, <em>"AI writing tools"</em>
+          </p>
         </div>
       )}
     </div>

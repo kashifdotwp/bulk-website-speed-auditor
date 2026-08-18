@@ -55,13 +55,13 @@ function apiMiddlewarePlugin() {
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, `http://${req.headers.host}`);
 
-        // 1. LIVE SERP SEARCH ENDPOINT
+        // 1. LIVE SERP SEARCH ENDPOINT (Multi-Engine Aggregator)
         if (url.pathname === '/api/serp' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
           req.on('end', async () => {
             try {
-              const { query, limit = 15, excludeDirectories = true } = JSON.parse(body || '{}');
+              const { query, limit = 20, excludeDirectories = true } = JSON.parse(body || '{}');
               if (!query || !query.trim()) {
                 res.statusCode = 400;
                 res.setHeader('Content-Type', 'application/json');
@@ -69,74 +69,185 @@ function apiMiddlewarePlugin() {
               }
 
               const cleanQuery = query.trim();
-              const exclusions = excludeDirectories
-                ? ' -site:justia.com -site:yelp.com -site:findlaw.com -site:avvo.com -site:lawyers.com -site:superpages.com -site:yellowpages.com -site:bbb.org -site:angi.com -site:thumbtack.com -site:wikipedia.org -site:facebook.com'
-                : '';
 
-              const fullQuery = `${cleanQuery}${exclusions}`;
+              // Known directory domains to exclude
+              const KNOWN_DIRS = new Set([
+                'yelp.com','yellowpages.com','superpages.com','angi.com','angieslist.com',
+                'thumbtack.com','homeadvisor.com','houzz.com','bbb.org','expertise.com',
+                'mapquest.com','manta.com','citysearch.com','merchantcircle.com',
+                'facebook.com','instagram.com','twitter.com','x.com','linkedin.com',
+                'pinterest.com','youtube.com','tiktok.com','wikipedia.org','wikimedia.org',
+                'reddit.com','quora.com','amazon.com','ebay.com','walmart.com','target.com',
+                'tripadvisor.com','justia.com','findlaw.com','avvo.com','lawyers.com',
+                'apple.com','google.com','bing.com','duckduckgo.com','yahoo.com'
+              ]);
 
-              const ddgRes = await fetch('https://html.duckduckgo.com/html/', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                },
-                body: new URLSearchParams({ q: fullQuery })
-              });
+              const isDirDomain = (d) => {
+                if (!d) return true;
+                const clean = d.toLowerCase().replace(/^www\./i, '');
+                if (KNOWN_DIRS.has(clean)) return true;
+                for (const dir of KNOWN_DIRS) { if (clean.endsWith('.' + dir)) return true; }
+                return false;
+              };
 
-              const html = await ddgRes.text();
-              const blocks = html.split(/class="result\s+results_links/gi);
-              const leads = [];
-              const seenDomains = new Set();
+              const cleanHtmlText = (raw) => {
+                if (!raw) return '';
+                return raw.replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&quot;/g, '"')
+                  .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').trim();
+              };
 
-              for (let i = 1; i < blocks.length && leads.length < limit; i++) {
-                const b = blocks[i];
-                const urlMatch = b.match(/class="result__snippet"[^>]*href="([^"]+)"/i) || b.match(/class="result__url"[^>]*href="([^"]+)"/i);
-                const titleMatch = b.match(/class="result__a"[^>]*>([\s\S]*?)<\/a>/i);
-                const snippetMatch = b.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>/i);
-
-                if (urlMatch) {
-                  let rawHref = urlMatch[1];
-                  const uddg = rawHref.match(/uddg=([^&]+)/);
-                  const cleanUrl = uddg ? decodeURIComponent(uddg[1]) : rawHref;
-
-                  try {
-                    const parsed = new URL(cleanUrl);
-                    const domain = parsed.hostname.replace(/^www\./i, '').toLowerCase();
-
-                    if (!domain.includes('duckduckgo') && !domain.includes('google') && !seenDomains.has(domain)) {
-                      seenDomains.add(domain);
-                      const rawTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&').trim() : domain;
-                      const rawSnippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').replace(/&#x27;/g, "'").replace(/&amp;/g, '&').trim() : '';
-
-                      let company = rawTitle.split(/[-–|:•]/)[0].trim();
-                      if (!company || company.length > 50) {
-                        company = domain.replace(/\.(com|org|net|co\.uk|io|ai|biz|us|law)$/i, '').replace(/[-_]/g, ' ');
-                        company = company.replace(/\b\w/g, l => l.toUpperCase());
-                      }
-
-                      leads.push({
-                        id: `serp_${Date.now()}_${i}`,
-                        url: cleanUrl,
-                        domain,
-                        title: rawTitle,
-                        snippet: rawSnippet,
-                        originalData: {
-                          website: cleanUrl,
-                          domain,
-                          company,
-                          city: cleanQuery.match(/(?:in|near|for)\s+([a-zA-Z\s]+)/i)?.[1]?.trim() || '',
-                          industry: cleanQuery,
-                          source: `Live SERP: "${cleanQuery}"`
-                        }
-                      });
-                    }
-                  } catch (e) {}
+              const extractCompany = (title, domain) => {
+                if (!title || title.trim().length === 0) {
+                  const base = domain.replace(/\.(com|org|net|co\.uk|io|ai|biz|us|law|app|dev|co|me|ca|uk|info)$/i, '');
+                  return base.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 }
+                const parts = title.split(/\s*[-–—|:•»]\s*/);
+                if (parts.length > 0 && parts[0].trim().length >= 2 && parts[0].trim().length <= 55) {
+                  if (!/^(10|top|best|the\s+best|find|how\s+to|what\s+is)\b/i.test(parts[0].trim())) {
+                    return parts[0].trim();
+                  }
+                }
+                const base = domain.replace(/\.(com|org|net|co\.uk|io|ai|biz|us|law|app|dev|co|me|ca|uk|info)$/i, '');
+                return base.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+              };
+
+              // --- Engine 1: DuckDuckGo HTML ---
+              let rawResults = [];
+              try {
+                const ddgRes = await fetch('https://html.duckduckgo.com/html/', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                  },
+                  body: new URLSearchParams({ q: cleanQuery })
+                });
+                if (ddgRes.ok) {
+                  const html = await ddgRes.text();
+                  const titleRegex = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+                  const snippetRegex = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+                  let match;
+                  const hrefs = [], titles = [];
+                  while ((match = titleRegex.exec(html)) !== null) {
+                    let rawHref = match[1];
+                    const uddg = rawHref.match(/uddg=([^&]+)/);
+                    const cleanUrl = uddg ? decodeURIComponent(uddg[1]) : rawHref;
+                    if (cleanUrl && cleanUrl.startsWith('http')) {
+                      hrefs.push(cleanUrl);
+                      titles.push(cleanHtmlText(match[2]));
+                    }
+                  }
+                  const snippets = [];
+                  while ((match = snippetRegex.exec(html)) !== null) {
+                    snippets.push(cleanHtmlText(match[1]));
+                  }
+                  for (let i = 0; i < hrefs.length; i++) {
+                    rawResults.push({ url: hrefs[i], title: titles[i] || '', snippet: snippets[i] || '' });
+                  }
+                }
+              } catch (e) {}
+
+              // --- Engine 1b: DuckDuckGo Lite (fallback if HTML gave few results) ---
+              if (rawResults.length < 5) {
+                try {
+                  const liteRes = await fetch('https://lite.duckduckgo.com/lite/', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/x-www-form-urlencoded',
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+                    },
+                    body: new URLSearchParams({ q: cleanQuery })
+                  });
+                  if (liteRes.ok) {
+                    const liteHtml = await liteRes.text();
+                    const liteLinkRegex = /<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+                    const liteSnippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
+                    let lm;
+                    const liteHrefs = [], liteTitles = [];
+                    while ((lm = liteLinkRegex.exec(liteHtml)) !== null) {
+                      let rawHref = lm[1];
+                      const uddg = rawHref.match(/uddg=([^&]+)/);
+                      const cleanHref = uddg ? decodeURIComponent(uddg[1]) : rawHref;
+                      if (cleanHref && cleanHref.startsWith('http')) {
+                        liteHrefs.push(cleanHref);
+                        liteTitles.push(cleanHtmlText(lm[2]));
+                      }
+                    }
+                    const liteSnippets = [];
+                    while ((lm = liteSnippetRegex.exec(liteHtml)) !== null) {
+                      liteSnippets.push(cleanHtmlText(lm[1]));
+                    }
+                    for (let i = 0; i < liteHrefs.length; i++) {
+                      rawResults.push({ url: liteHrefs[i], title: liteTitles[i] || '', snippet: liteSnippets[i] || '' });
+                    }
+                  }
+                } catch (e) {}
+              }
+
+              // --- Engine 2: Bing (fallback) ---
+              if (rawResults.length < 5) {
+                try {
+                  const encoded = encodeURIComponent(cleanQuery);
+                  const bingRes = await fetch(`https://www.bing.com/search?q=${encoded}&setmkt=en-US&setlang=en`, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+                    }
+                  });
+                  if (bingRes.ok) {
+                    const bingHtml = await bingRes.text();
+                    const bingRegex = /<li[^>]*class="b_algo"[^>]*>[\s\S]*?<h2><a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>[\s\S]*?(?:<p[^>]*>([\s\S]*?)<\/p>)?/gi;
+                    let bm;
+                    while ((bm = bingRegex.exec(bingHtml)) !== null) {
+                      if (bm[1] && bm[1].startsWith('http') && !bm[1].includes('bing.com') && !bm[1].includes('microsoft.com')) {
+                        rawResults.push({ url: bm[1], title: cleanHtmlText(bm[2]), snippet: cleanHtmlText(bm[3] || '') });
+                      }
+                    }
+                  }
+                } catch (e) {}
+              }
+
+              // --- Normalize, deduplicate, filter ---
+              const finalLeads = [];
+              const seenDomains = new Set();
+              for (let i = 0; i < rawResults.length && finalLeads.length < limit; i++) {
+                const item = rawResults[i];
+                let cleanUrl = item.url;
+                try {
+                  if (!cleanUrl.startsWith('http')) cleanUrl = 'https://' + cleanUrl;
+                  const parsed = new URL(cleanUrl);
+                  const domain = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+                  if (!domain || domain.length < 3 || !domain.includes('.')) continue;
+                  if (excludeDirectories && isDirDomain(domain)) continue;
+                  if (seenDomains.has(domain)) continue;
+                  seenDomains.add(domain);
+
+                  const company = extractCompany(item.title, domain);
+                  const cityMatch = cleanQuery.match(/(?:in|near|for|around)\s+([a-zA-Z\s,]+)/i);
+                  const detectedCity = cityMatch ? cityMatch[1].trim() : '';
+
+                  finalLeads.push({
+                    id: `serp_${Date.now()}_${finalLeads.length + 1}`,
+                    url: cleanUrl,
+                    domain,
+                    title: item.title || domain,
+                    snippet: item.snippet || `Ranking result for query: "${cleanQuery}"`,
+                    originalData: {
+                      website: cleanUrl,
+                      domain,
+                      company,
+                      city: detectedCity,
+                      industry: cleanQuery,
+                      source: `Live SERP: "${cleanQuery}"`
+                    }
+                  });
+                } catch (e) {}
               }
 
               res.setHeader('Content-Type', 'application/json');
-              res.end(JSON.stringify({ success: true, leads }));
+              res.end(JSON.stringify({ success: true, query: cleanQuery, totalFound: finalLeads.length, leads: finalLeads }));
             } catch (err) {
               res.statusCode = 500;
               res.setHeader('Content-Type', 'application/json');
