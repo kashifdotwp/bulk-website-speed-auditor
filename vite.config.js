@@ -1,7 +1,53 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// Custom Vite plugin for live SERP search and real server-side speed auditing
+function cleanScrapedEmails(rawHtml, domain) {
+  if (!rawHtml || typeof rawHtml !== 'string') return [];
+  const found = new Set();
+  const domainClean = domain.replace(/^www\./i, '').toLowerCase();
+
+  const mailtoMatches = rawHtml.matchAll(/mailto:([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi);
+  for (const m of mailtoMatches) {
+    if (m[1]) found.add(m[1].toLowerCase().trim());
+  }
+
+  const regexMatches = rawHtml.matchAll(/\b([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/gi);
+  for (const m of regexMatches) {
+    if (m[1]) found.add(m[1].toLowerCase().trim());
+  }
+
+  const ignoredPatterns = [
+    /\.(png|jpg|jpeg|gif|svg|webp|avif|css|js|woff|woff2|ttf|eot)$/i,
+    /sentry\.io|wixpress\.com|cloudflare\.com|google\.com|googleapis\.com|gravatar\.com|schema\.org|wordpress\.org|wp\.com|w3\.org|github\.com|example\.com|domain\.com|email\.com|yoursite\.com/i,
+    /^u00/i,
+    /^2x/i,
+    /^bootstrap/i
+  ];
+
+  const validEmails = Array.from(found).filter(email => {
+    if (email.length > 60 || email.length < 5) return false;
+    return !ignoredPatterns.some(pat => pat.test(email));
+  });
+
+  validEmails.sort((a, b) => {
+    const aMatchesDomain = a.endsWith(`@${domainClean}`) || a.endsWith(`.${domainClean}`);
+    const bMatchesDomain = b.endsWith(`@${domainClean}`) || b.endsWith(`.${domainClean}`);
+    if (aMatchesDomain && !bMatchesDomain) return -1;
+    if (!aMatchesDomain && bMatchesDomain) return 1;
+
+    const rolePrefixes = /^(contact|info|hello|support|sales|team|inquiries|office|admin|help)@/i;
+    const aRole = rolePrefixes.test(a);
+    const bRole = rolePrefixes.test(b);
+    if (aRole && !bRole) return -1;
+    if (!aRole && bRole) return 1;
+
+    return 0;
+  });
+
+  return validEmails;
+}
+
+// Custom Vite plugin for live SERP search, real speed auditing, and email scraping
 function apiMiddlewarePlugin() {
   return {
     name: 'api-middleware',
@@ -101,7 +147,71 @@ function apiMiddlewarePlugin() {
           return;
         }
 
-        // 2. LIVE REAL SPEED AUDITOR ENDPOINT
+        // 2. LIVE EMAIL SCRAPER ENDPOINT
+        if (url.pathname === '/api/scrape-email' && req.method === 'POST') {
+          let body = '';
+          req.on('data', chunk => { body += chunk; });
+          req.on('end', async () => {
+            try {
+              const { url: targetUrl } = JSON.parse(body || '{}');
+              if (!targetUrl) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                return res.end(JSON.stringify({ error: 'Target URL is required' }));
+              }
+
+              let cleanUrl = targetUrl.trim();
+              if (!/^https?:\/\//i.test(cleanUrl)) {
+                cleanUrl = `https://${cleanUrl}`;
+              }
+
+              const parsed = new URL(cleanUrl);
+              const domain = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+              const origin = `${parsed.protocol}//${parsed.hostname}`;
+
+              const headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+              };
+
+              const fetchPage = async (targetPath) => {
+                try {
+                  const controller = new AbortController();
+                  const timeout = setTimeout(() => controller.abort(), 6000);
+                  const response = await fetch(targetPath, { headers, redirect: 'follow', signal: controller.signal });
+                  clearTimeout(timeout);
+                  if (response.ok) return await response.text();
+                } catch {}
+                return '';
+              };
+
+              const [homeHtml, contactHtml, contactUsHtml, aboutHtml] = await Promise.all([
+                fetchPage(origin),
+                fetchPage(`${origin}/contact`),
+                fetchPage(`${origin}/contact-us`),
+                fetchPage(`${origin}/about`)
+              ]);
+
+              const combinedHtml = `${homeHtml} ${contactHtml} ${contactUsHtml} ${aboutHtml}`;
+              const emails = cleanScrapedEmails(combinedHtml, domain);
+
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({
+                success: true,
+                domain,
+                email: emails[0] || null,
+                allEmails: emails
+              }));
+            } catch (err) {
+              res.statusCode = 500;
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ success: false, error: err.message }));
+            }
+          });
+          return;
+        }
+
+        // 3. LIVE DIRECT SPEED AUDITOR ENDPOINT
         if (url.pathname === '/api/live-audit' && req.method === 'POST') {
           let body = '';
           req.on('data', chunk => { body += chunk; });
@@ -129,7 +239,6 @@ function apiMiddlewarePlugin() {
               const domain = parsed.hostname.replace(/^www\./i, '');
               const startTime = Date.now();
 
-              // Fetch live website to measure real network latency & parse DOM payloads
               const controller = new AbortController();
               const timeoutId = setTimeout(() => controller.abort(), 12000);
 
@@ -159,13 +268,11 @@ function apiMiddlewarePlugin() {
                 htmlBytes = Buffer.byteLength(html, 'utf8');
               } catch (fetchErr) {
                 clearTimeout(timeoutId);
-                // If fetch direct failed, estimate realistic baseline latency
                 ttfbMs = 850;
                 downloadMs = 1200;
                 htmlBytes = 35000;
               }
 
-              // Inspect real DOM resources
               const scripts = Math.max(3, (html.match(/<script\b[^>]*>/gi) || []).length);
               const stylesheets = Math.max(2, (html.match(/<link\b[^>]*rel=["']stylesheet["'][^>]*>/gi) || []).length);
               const images = Math.max(2, (html.match(/<img\b[^>]*>/gi) || []).length);
@@ -174,7 +281,6 @@ function apiMiddlewarePlugin() {
               const hasWordpress = /wp-content|wp-includes/i.test(html);
               const hasShopify = /cdn\.shopify\.com|shopify/i.test(html);
 
-              // Calculate realistic Core Web Vitals from real server measurements
               let lcpSeconds = +( (ttfbMs / 1000) * 2.2 + (scripts * 0.08) + (stylesheets * 0.09) + (images * 0.12) ).toFixed(2);
               if (strategy === 'mobile') {
                 lcpSeconds = +(lcpSeconds * 1.35).toFixed(2);
@@ -185,7 +291,6 @@ function apiMiddlewarePlugin() {
               const tbtMs = Math.round( Math.max(30, (scripts * 35) + (hasHeavyTracking ? 280 : 0) + (ttfbMs > 800 ? 200 : 0)) );
               const clsScore = +( Math.min(0.45, (images * 0.015) + (hasWordpress ? 0.06 : 0.01)) ).toFixed(3);
 
-              // Calculate Performance Score (0-100) based on Lighthouse CWV weighting
               let score = 100;
               score -= Math.min(40, Math.max(0, (lcpSeconds - 1.8) * 12));
               score -= Math.min(30, Math.max(0, (tbtMs - 150) / 25));
@@ -193,9 +298,7 @@ function apiMiddlewarePlugin() {
               score -= Math.min(15, Math.max(0, (clsScore - 0.05) * 40));
               score = Math.max(14, Math.min(99, Math.round(score)));
 
-              // Detect Real Bottlenecks & Opportunities
               const opportunities = [];
-
               if (stylesheets > 4 || scripts > 10) {
                 const delaySec = ((stylesheets * 0.12) + (scripts * 0.08)).toFixed(1);
                 opportunities.push({

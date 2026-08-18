@@ -16,7 +16,9 @@ export default function PitchDrawer({
   // Update pitch content when item or angle changes
   useEffect(() => {
     if (item) {
-      const pitch = generatePitch(item, selectedAngle, item.originalData || {});
+      const orig = item.originalData || {};
+      const targetEmail = item.resolvedEmail || orig.email || '';
+      const pitch = generatePitch(item, selectedAngle, { ...orig, email: targetEmail });
       setCustomSubject(pitch.subject);
       setCustomBody(pitch.body);
     }
@@ -25,6 +27,7 @@ export default function PitchDrawer({
   if (!isOpen || !item) return null;
 
   const orig = item.originalData || {};
+  const effectiveEmail = item.resolvedEmail || orig.email || '';
   const snippet = buildMailmeteorSnippet(item);
 
   const handleCopy = (text, fieldName) => {
@@ -34,7 +37,7 @@ export default function PitchDrawer({
   };
 
   const handleOpenEmail = () => {
-    const to = orig.email || '';
+    const to = effectiveEmail || '';
     const mailto = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(customSubject)}&body=${encodeURIComponent(customBody)}`;
     window.open(mailto, '_blank');
   };
@@ -99,9 +102,13 @@ export default function PitchDrawer({
               </div>
             </div>
 
-            {orig.email && (
+            {effectiveEmail ? (
               <span className="badge badge-cyan" style={{ fontSize: '0.75rem' }}>
-                Recipient: {orig.email}
+                <Mail size={11} style={{ marginRight: '3px' }} /> Recipient: {effectiveEmail}
+              </span>
+            ) : (
+              <span className="badge" style={{ fontSize: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-muted)' }}>
+                No email set (Manual/Mailmeteor merge)
               </span>
             )}
           </div>

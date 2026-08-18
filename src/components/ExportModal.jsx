@@ -7,6 +7,8 @@ export default function ExportModal({
   isOpen,
   onClose,
   results,
+  emailMap,
+  categoryMap,
   defaultAngle = 'conversion_risk'
 }) {
   const [selectedAngle, setSelectedAngle] = useState(defaultAngle);
@@ -15,13 +17,13 @@ export default function ExportModal({
   if (!isOpen || !results || results.length === 0) return null;
 
   const handleDownload = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle);
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {});
     const dateStr = new Date().toISOString().slice(0, 10);
     downloadCsvFile(csvContent, `mailmeteor_speed_leads_${dateStr}.csv`);
   };
 
   const handleCopy = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle);
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {});
     navigator.clipboard.writeText(csvContent);
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2000);
@@ -50,7 +52,7 @@ export default function ExportModal({
                 Export for Mailmeteor & Cold Outreach
               </h3>
               <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {results.length} total audited lead rows formatted for Mailmeteor mail-merge
+                {results.length} total audited lead rows with scraped/edited emails formatted for Mailmeteor
               </p>
             </div>
           </div>
@@ -109,9 +111,13 @@ export default function ExportModal({
               Included Export Columns (Preserves all original lead data):
             </strong>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+              <span className="badge badge-cyan">Email</span>
+              <span className="badge badge-indigo">Company</span>
+              <span className="badge badge-indigo">Category</span>
               <span className="badge badge-indigo">Domain</span>
               <span className="badge badge-indigo">Website_URL</span>
               <span className="badge badge-indigo">Mobile_Score</span>
+              <span className="badge badge-indigo">Desktop_Score</span>
               <span className="badge badge-indigo">LCP_Seconds</span>
               <span className="badge badge-indigo">Top_Bottleneck</span>
               <span className="badge badge-indigo">Outreach_Priority</span>
@@ -119,10 +125,10 @@ export default function ExportModal({
               <span className="badge badge-cyan">&#123;&#123;Hook_Speed_Snippet&#125;&#125;</span>
               <span className="badge badge-cyan">&#123;&#123;Pitch_Email_Subject&#125;&#125;</span>
               <span className="badge badge-cyan">&#123;&#123;Pitch_Email_Body&#125;&#125;</span>
-              <span className="badge" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>+ All original CSV fields</span>
+              <span className="badge" style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}>+ All custom lead fields</span>
             </div>
             <p style={{ fontSize: '0.725rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-              * Open Google Sheets, import this CSV, and connect directly with Mailmeteor for 50–500 emails/day.
+              * Open Google Sheets, import this CSV, and connect directly with Mailmeteor for 50–500 cold emails/day.
             </p>
           </div>
 

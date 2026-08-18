@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 import { normalizeUrl, extractDomain } from './psiApi';
 import { generatePitch, buildMailmeteorSnippet } from './pitchGenerator';
+import { autoDetectCategory, CATEGORY_DEFINITIONS } from './categories';
 
 /**
  * Normalizes an array of raw URLs (from textarea) into lead objects
@@ -17,7 +18,6 @@ export function parseRawUrlText(text) {
   const leads = [];
 
   for (const line of lines) {
-    // Avoid comments or empty lines
     if (line.startsWith('#') || line.startsWith('//')) continue;
 
     const normalized = normalizeUrl(line);
@@ -48,7 +48,6 @@ function findMatchingKey(rowKeys, potentialMatches) {
     const found = rowKeys.find(k => k.trim().toLowerCase() === pm.toLowerCase());
     if (found) return found;
   }
-  // Try partial match
   for (const pm of potentialMatches) {
     const found = rowKeys.find(k => k.trim().toLowerCase().includes(pm.toLowerCase()));
     if (found) return found;
@@ -104,7 +103,7 @@ export function parseCsvFile(file) {
               first_name: firstNameKey ? (row[firstNameKey] || '').trim() : '',
               company: companyKey ? (row[companyKey] || '').trim() : domain,
               city: cityKey ? (row[cityKey] || '').trim() : '',
-              ...row // Preserve all other user columns
+              ...row
             };
 
             leads.push({
@@ -139,33 +138,37 @@ export function parseCsvFile(file) {
 /**
  * Formats audited results into a downloadable CSV for Mailmeteor & cold email tools
  */
-export function exportToMailmeteorCsv(auditResults, angleId = 'conversion_risk') {
+export function exportToMailmeteorCsv(auditResults, angleId = 'conversion_risk', emailMap = {}, categoryMap = {}) {
   if (!auditResults || auditResults.length === 0) return '';
 
   const exportRows = auditResults.map(item => {
     const orig = item.originalData || {};
-    const pitch = generatePitch(item, angleId, orig);
+    const effectiveEmail = emailMap[item.id] || orig.email || '';
+    const effectiveCatId = categoryMap[item.id] || autoDetectCategory(item);
+    const catDef = CATEGORY_DEFINITIONS.find(c => c.id === effectiveCatId) || CATEGORY_DEFINITIONS[4];
+
+    const pitch = generatePitch(item, angleId, { ...orig, email: effectiveEmail });
     const snippet = buildMailmeteorSnippet(item);
 
     return {
-      ...orig, // Preserve all uploaded lead columns
+      Email: effectiveEmail,
+      Company: orig.company || item.domain || '',
+      Category: catDef.label,
       Domain: item.domain || '',
       Website_URL: item.url || '',
-      Audit_Status: item.success ? 'Success' : 'Failed',
-      Mobile_Score: item.score ?? 'N/A',
-      Score_Category: item.scoreCategory ? item.scoreCategory.toUpperCase() : 'N/A',
+      Mobile_Score: item.mobile?.score ?? item.score ?? 'N/A',
+      Desktop_Score: item.desktop?.score ?? item.desktopScore ?? 'N/A',
       LCP_Seconds: item.metrics?.lcp?.value ?? 'N/A',
       FCP_Seconds: item.metrics?.fcp?.value ?? 'N/A',
       TBT_Milliseconds: item.metrics?.tbt?.value ?? 'N/A',
       CLS_Score: item.metrics?.cls?.value ?? 'N/A',
       Top_Bottleneck: item.topBottleneck || 'N/A',
-      Second_Bottleneck: item.secondBottleneck || 'None',
       Outreach_Priority: item.outreachPriority || 'Standard',
-      Lead_Tier: item.leadTier || 'Cold',
       Estimated_Bounce_Increase: item.estimatedBounceIncrease || 'N/A',
       Hook_Speed_Snippet: snippet,
       Pitch_Email_Subject: pitch.subject,
-      Pitch_Email_Body: pitch.body
+      Pitch_Email_Body: pitch.body,
+      ...orig // Preserve all other original columns
     };
   });
 

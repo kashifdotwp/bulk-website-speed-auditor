@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   SHORTLISTED_IDS: 'nmd_shortlisted_ids',
   STATUS_MAP: 'nmd_lead_status_map',
   CATEGORY_MAP: 'nmd_lead_category_map',
+  EMAIL_MAP: 'nmd_lead_email_map',
   CONCURRENCY: 'nmd_concurrency_pref',
   DELAY_GAP: 'nmd_delay_gap_pref',
   STRATEGY: 'nmd_strategy_pref',
@@ -102,6 +103,23 @@ export function loadCategoryMap() {
   }
 }
 
+export function saveEmailMap(emailMap) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.EMAIL_MAP, JSON.stringify(emailMap || {}));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadEmailMap() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.EMAIL_MAP);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function clearAuditResults() {
   try {
     localStorage.removeItem(STORAGE_KEYS.AUDIT_RESULTS);
@@ -138,16 +156,17 @@ export function loadPreferences() {
 /**
  * Creates a complete JSON project backup bundle (Zero Data Loss)
  */
-export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, apiKey) {
+export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, apiKey) {
   const backupData = {
     appName: 'Needle Mover Detector',
-    version: '2.1.0',
+    version: '2.2.0',
     exportedAt: new Date().toISOString(),
     itemCount: results.length,
     results,
     shortlistedIds: Array.from(shortlistedIds),
     leadStatusMap,
     categoryMap: categoryMap || {},
+    emailMap: emailMap || {},
     hasApiKey: Boolean(apiKey)
   };
 
@@ -183,6 +202,7 @@ export function parseProjectBackupFile(file) {
           shortlistedIds: new Set(parsed.shortlistedIds || []),
           leadStatusMap: parsed.leadStatusMap || {},
           categoryMap: parsed.categoryMap || {},
+          emailMap: parsed.emailMap || {},
           exportedAt: parsed.exportedAt
         });
       } catch (err) {

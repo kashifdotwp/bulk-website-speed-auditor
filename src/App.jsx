@@ -27,7 +27,9 @@ import {
   saveLeadStatusMap,
   loadLeadStatusMap,
   saveCategoryMap,
-  loadCategoryMap
+  loadCategoryMap,
+  saveEmailMap,
+  loadEmailMap
 } from './services/storage';
 
 export default function App() {
@@ -66,6 +68,7 @@ export default function App() {
   const [shortlistedIds, setShortlistedIds] = useState(() => loadShortlistedIds());
   const [leadStatusMap, setLeadStatusMap] = useState(() => loadLeadStatusMap());
   const [categoryMap, setCategoryMap] = useState(() => loadCategoryMap());
+  const [emailMap, setEmailMap] = useState(() => loadEmailMap());
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [queueProgress, setQueueProgress] = useState(null);
 
@@ -108,6 +111,11 @@ export default function App() {
   useEffect(() => {
     saveCategoryMap(categoryMap);
   }, [categoryMap]);
+
+  // Sync email map
+  useEffect(() => {
+    saveEmailMap(emailMap);
+  }, [emailMap]);
 
   // Queue Progress & Item completion handlers
   const handleStartAudit = (leads) => {
@@ -170,6 +178,11 @@ export default function App() {
       next.delete(id);
       return next;
     });
+    setEmailMap(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const handleDeleteSelected = () => {
@@ -179,6 +192,11 @@ export default function App() {
       setShortlistedIds(prev => {
         const next = new Set(prev);
         for (const id of selectedIds) next.delete(id);
+        return next;
+      });
+      setEmailMap(prev => {
+        const next = { ...prev };
+        for (const id of selectedIds) delete next[id];
         return next;
       });
       setSelectedIds(new Set());
@@ -220,6 +238,7 @@ export default function App() {
       setShortlistedIds(new Set());
       setLeadStatusMap({});
       setCategoryMap({});
+      setEmailMap({});
       setSelectedIds(new Set());
       setQueueProgress(null);
     }
@@ -248,11 +267,19 @@ export default function App() {
     }));
   };
 
-  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap) => {
+  const handleChangeEmail = (id, newEmail) => {
+    setEmailMap(prev => ({
+      ...prev,
+      [id]: newEmail
+    }));
+  };
+
+  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap) => {
     setResults(newResults);
     setShortlistedIds(newShortlisted);
     setLeadStatusMap(newStatusMap);
     if (newCategoryMap) setCategoryMap(newCategoryMap);
+    if (newEmailMap) setEmailMap(newEmailMap);
   };
 
   const handleKeySaved = (newKey) => {
@@ -320,7 +347,7 @@ export default function App() {
       list = list.filter(r => {
         const d = (r.domain || '').toLowerCase();
         const c = (r.originalData?.company || '').toLowerCase();
-        const e = (r.originalData?.email || '').toLowerCase();
+        const e = (emailMap[r.id] || r.originalData?.email || '').toLowerCase();
         const city = (r.originalData?.city || '').toLowerCase();
         return d.includes(q) || c.includes(q) || e.includes(q) || city.includes(q);
       });
@@ -339,7 +366,7 @@ export default function App() {
     });
 
     return list;
-  }, [results, filterTier, filterCategory, searchQuery, sortBy, shortlistedIds, categoryMap]);
+  }, [results, filterTier, filterCategory, searchQuery, sortBy, shortlistedIds, categoryMap, emailMap]);
 
   // Counts for Filter Chips
   const filterCounts = useMemo(() => {
@@ -458,6 +485,8 @@ export default function App() {
                 onChangeLeadStatus={handleChangeLeadStatus}
                 categoryMap={categoryMap}
                 onChangeCategory={handleChangeCategory}
+                emailMap={emailMap}
+                onChangeEmail={handleChangeEmail}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
@@ -484,6 +513,7 @@ export default function App() {
         shortlistedIds={shortlistedIds}
         leadStatusMap={leadStatusMap}
         categoryMap={categoryMap}
+        emailMap={emailMap}
         apiKey={apiKey}
         onRestoreProject={handleRestoreProject}
       />
@@ -500,6 +530,8 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         results={filterTier === 'shortlisted' ? filteredResults : results}
+        emailMap={emailMap}
+        categoryMap={categoryMap}
         defaultAngle={selectedPitchAngle}
       />
     </div>
