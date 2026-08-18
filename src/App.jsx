@@ -14,6 +14,7 @@ import ProjectDataModal from './components/ProjectDataModal';
 
 import { AuditQueueEngine } from './services/queueEngine';
 import { autoDetectCategory } from './services/categories';
+import { scrapeWebsiteEmail } from './services/emailFinder';
 import {
   saveApiKey,
   loadApiKey,
@@ -69,6 +70,7 @@ export default function App() {
   const [leadStatusMap, setLeadStatusMap] = useState(() => loadLeadStatusMap());
   const [categoryMap, setCategoryMap] = useState(() => loadCategoryMap());
   const [emailMap, setEmailMap] = useState(() => loadEmailMap());
+  const [emailStatusMap, setEmailStatusMap] = useState({}); // { [id]: 'scanning' | 'found' | 'not_found' }
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [queueProgress, setQueueProgress] = useState(null);
 
@@ -117,6 +119,32 @@ export default function App() {
     saveEmailMap(emailMap);
   }, [emailMap]);
 
+  // Auto Email Scraping Pipeline on Audit Completion
+  const triggerAutoEmailScrape = async (lead) => {
+    if (!lead || !lead.url || !lead.success) return;
+    const id = lead.id;
+
+    // If an email is already present in original CSV or custom emailMap, skip
+    if (emailMap[id] || lead.originalData?.email) {
+      setEmailStatusMap(prev => ({ ...prev, [id]: 'found' }));
+      return;
+    }
+
+    setEmailStatusMap(prev => ({ ...prev, [id]: 'scanning' }));
+
+    try {
+      const res = await scrapeWebsiteEmail(lead.url);
+      if (res.success && res.email) {
+        setEmailMap(prev => ({ ...prev, [id]: res.email }));
+        setEmailStatusMap(prev => ({ ...prev, [id]: 'found' }));
+      } else {
+        setEmailStatusMap(prev => ({ ...prev, [id]: 'not_found' }));
+      }
+    } catch {
+      setEmailStatusMap(prev => ({ ...prev, [id]: 'not_found' }));
+    }
+  };
+
   // Queue Progress & Item completion handlers
   const handleStartAudit = (leads) => {
     if (!leads || leads.length === 0) return;
@@ -137,6 +165,9 @@ export default function App() {
           }
           return [newItem, ...prev];
         });
+
+        // Automatically scan website for contact email
+        triggerAutoEmailScrape(newItem);
       },
       onFinish: () => {
         // Finished
@@ -183,6 +214,11 @@ export default function App() {
       delete next[id];
       return next;
     });
+    setEmailStatusMap(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   };
 
   const handleDeleteSelected = () => {
@@ -195,6 +231,11 @@ export default function App() {
         return next;
       });
       setEmailMap(prev => {
+        const next = { ...prev };
+        for (const id of selectedIds) delete next[id];
+        return next;
+      });
+      setEmailStatusMap(prev => {
         const next = { ...prev };
         for (const id of selectedIds) delete next[id];
         return next;
@@ -239,6 +280,7 @@ export default function App() {
       setLeadStatusMap({});
       setCategoryMap({});
       setEmailMap({});
+      setEmailStatusMap({});
       setSelectedIds(new Set());
       setQueueProgress(null);
     }
@@ -271,6 +313,10 @@ export default function App() {
     setEmailMap(prev => ({
       ...prev,
       [id]: newEmail
+    }));
+    setEmailStatusMap(prev => ({
+      ...prev,
+      [id]: newEmail ? 'found' : 'not_found'
     }));
   };
 
@@ -486,6 +532,8 @@ export default function App() {
                 categoryMap={categoryMap}
                 onChangeCategory={handleChangeCategory}
                 emailMap={emailMap}
+                emailStatusMap={emailStatusMap}
+                onReScrapeEmail={triggerAutoEmailScrape}
                 onChangeEmail={handleChangeEmail}
                 selectedIds={selectedIds}
                 onToggleSelect={handleToggleSelect}

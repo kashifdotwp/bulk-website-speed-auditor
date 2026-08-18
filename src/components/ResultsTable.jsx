@@ -20,7 +20,9 @@ import {
   Edit2,
   Search,
   Loader2,
-  Plus
+  Plus,
+  RotateCw,
+  AlertCircle
 } from 'lucide-react';
 import { buildMailmeteorSnippet } from '../services/pitchGenerator';
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from '../services/categories';
@@ -43,6 +45,8 @@ export default function ResultsTable({
   categoryMap,
   onChangeCategory,
   emailMap,
+  emailStatusMap,
+  onReScrapeEmail,
   onChangeEmail,
   selectedIds,
   onToggleSelect,
@@ -55,7 +59,7 @@ export default function ResultsTable({
   const [copiedEmailId, setCopiedEmailId] = useState(null);
   const [editingEmailId, setEditingEmailId] = useState(null);
   const [tempEmailInput, setTempEmailInput] = useState('');
-  const [scrapingEmailIds, setScrapingEmailIds] = useState(new Set());
+  const [manualScrapingIds, setManualScrapingIds] = useState(new Set());
 
   const toggleRow = (id) => {
     setExpandedRows(prev => {
@@ -91,21 +95,22 @@ export default function ResultsTable({
     setTempEmailInput('');
   };
 
-  const handleAutoScrapeEmail = async (item) => {
+  const handleManualScrapeEmail = async (item) => {
     const id = item.id;
-    setScrapingEmailIds(prev => new Set(prev).add(id));
+    setManualScrapingIds(prev => new Set(prev).add(id));
     try {
       const res = await scrapeWebsiteEmail(item.url);
       if (res.success && res.email) {
         onChangeEmail(id, res.email);
         setTempEmailInput(res.email);
       } else {
+        onChangeEmail(id, '');
         alert(`No public email found on ${item.domain}. You can enter it manually.`);
       }
     } catch {
       alert(`Could not scrape email for ${item.domain}`);
     } finally {
-      setScrapingEmailIds(prev => {
+      setManualScrapingIds(prev => {
         const next = new Set(prev);
         next.delete(id);
         return next;
@@ -144,12 +149,12 @@ export default function ResultsTable({
             <th style={{ width: '35px', textAlign: 'center' }}>⭐</th>
             <th style={{ width: '30px' }}></th>
             <th>Website / Company</th>
-            <th style={{ width: '210px' }}>Contact Email</th>
+            <th style={{ width: '230px' }}>Contact Email</th>
             <th style={{ width: '120px' }}>Category</th>
             <th style={{ textAlign: 'center', width: '125px' }}>Speed Scores</th>
             <th>Core Web Vitals</th>
             <th>Top Bottleneck</th>
-            <th style={{ textAlign: 'center', width: '100px' }}>Priority</th>
+            <th style={{ textAlign: 'center', width: '95px' }}>Priority</th>
             <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
             <th style={{ textAlign: 'right', width: '175px' }}>Actions</th>
           </tr>
@@ -166,10 +171,11 @@ export default function ResultsTable({
             const currentCatId = categoryMap?.[item.id] || autoDetectCategory(item);
             const currentCat = CATEGORY_DEFINITIONS.find(c => c.id === currentCatId) || CATEGORY_DEFINITIONS[4];
 
-            // Resolve Email
+            // Resolve Email & Status
             const effectiveEmail = emailMap?.[item.id] ?? (item.originalData?.email || '');
+            const currentEmailStatus = emailStatusMap?.[item.id] || (effectiveEmail ? 'found' : 'not_scanned');
             const isEditingThisEmail = editingEmailId === item.id;
-            const isScrapingThisEmail = scrapingEmailIds.has(item.id);
+            const isScrapingThisEmail = manualScrapingIds.has(item.id) || currentEmailStatus === 'scanning';
             const isEmailCopied = copiedEmailId === item.id;
 
             const orig = item.originalData || {};
@@ -298,7 +304,7 @@ export default function ResultsTable({
                     </div>
                   </td>
 
-                  {/* EMAIL COLUMN: Live Scraper & Manual Edit */}
+                  {/* EMAIL COLUMN: Auto-Scraped + Editable + Not Found State */}
                   <td>
                     {isEditingThisEmail ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -337,11 +343,11 @@ export default function ResultsTable({
                             type="button"
                             className="btn btn-secondary"
                             style={{ fontSize: '0.675rem', padding: '0.2rem 0.45rem', color: 'var(--accent-primary)' }}
-                            onClick={() => handleAutoScrapeEmail(item)}
+                            onClick={() => handleManualScrapeEmail(item)}
                             disabled={isScrapingThisEmail}
                           >
                             {isScrapingThisEmail ? <Loader2 size={11} className="spin-icon" /> : <Search size={11} />}
-                            <span>{isScrapingThisEmail ? 'Scraping...' : 'Auto-Scrape'}</span>
+                            <span>{isScrapingThisEmail ? 'Scraping...' : 'Rescan Site'}</span>
                           </button>
                           <button
                             type="button"
@@ -352,6 +358,20 @@ export default function ResultsTable({
                             Cancel
                           </button>
                         </div>
+                      </div>
+                    ) : isScrapingThisEmail ? (
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
+                        fontSize: '0.725rem',
+                        color: 'var(--accent-primary)',
+                        background: 'rgba(79, 70, 229, 0.08)',
+                        padding: '0.25rem 0.55rem',
+                        borderRadius: 'var(--radius-sm)'
+                      }}>
+                        <Loader2 size={12} className="spin-icon" />
+                        <span>Scanning email...</span>
                       </div>
                     ) : effectiveEmail ? (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
@@ -364,7 +384,7 @@ export default function ResultsTable({
                             alignItems: 'center',
                             gap: '0.25rem',
                             textDecoration: 'none',
-                            maxWidth: '150px',
+                            maxWidth: '160px',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap'
@@ -398,26 +418,40 @@ export default function ResultsTable({
                         </div>
                       </div>
                     ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            color: 'var(--text-muted)',
+                            background: 'var(--bg-primary)',
+                            border: '1px solid var(--border-subtle)',
+                            padding: '0.15rem 0.4rem',
+                            borderRadius: 'var(--radius-sm)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem'
+                          }}
+                        >
+                          <AlertCircle size={10} color="#94a3b8" /> No Email Found
+                        </span>
+
                         <button
                           type="button"
                           className="btn btn-secondary"
-                          style={{ fontSize: '0.7rem', padding: '0.25rem 0.5rem', color: 'var(--accent-primary)', borderStyle: 'dashed' }}
-                          onClick={() => handleAutoScrapeEmail(item)}
-                          disabled={isScrapingThisEmail}
-                          title="Scrape contact email from website"
+                          style={{ fontSize: '0.675rem', padding: '0.15rem 0.4rem', color: 'var(--accent-primary)' }}
+                          onClick={() => handleStartEditEmail(item.id, '')}
+                          title="Manually enter contact email"
                         >
-                          {isScrapingThisEmail ? <Loader2 size={11} className="spin-icon" /> : <Search size={11} />}
-                          <span>{isScrapingThisEmail ? 'Scraping...' : 'Find Email'}</span>
+                          <Plus size={10} /> Add Email
                         </button>
 
                         <button
                           type="button"
-                          onClick={() => handleStartEditEmail(item.id, '')}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: '0.7rem' }}
-                          title="Manually add email"
+                          onClick={() => handleManualScrapeEmail(item)}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
+                          title="Rescan website for email"
                         >
-                          <Plus size={13} />
+                          <RotateCw size={11} />
                         </button>
                       </div>
                     )}
@@ -506,7 +540,7 @@ export default function ResultsTable({
 
                   {/* Top Bottleneck */}
                   <td>
-                    <div style={{ maxWidth: '200px' }}>
+                    <div style={{ maxWidth: '190px' }}>
                       <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.8rem', lineHeight: '1.3' }}>
                         {item.topBottleneck}
                       </div>
