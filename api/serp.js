@@ -1,63 +1,31 @@
 /**
- * Multi-Engine SERP Aggregator & Web Discovery API
- * Supports every query type: Local Business, SaaS, E-commerce, Agencies, B2B, and Niche Brands
- * Cascades across DuckDuckGo HTML/Lite, Bing, Yahoo & Google to guarantee high-quality results.
+ * Multi-Engine SERP Aggregator & Web Discovery API (Vercel Serverless)
+ * Cascades: DuckDuckGo HTML → DuckDuckGo Lite → Bing
+ * Supports ALL query types with country/region filtering
  */
 
 const KNOWN_DIRECTORIES = new Set([
-  'yelp.com',
-  'yellowpages.com',
-  'superpages.com',
-  'angi.com',
-  'angieslist.com',
-  'thumbtack.com',
-  'homeadvisor.com',
-  'houzz.com',
-  'bbb.org',
-  'expertise.com',
-  'mapquest.com',
-  'manta.com',
-  'citysearch.com',
-  'merchantcircle.com',
-  'facebook.com',
-  'instagram.com',
-  'twitter.com',
-  'x.com',
-  'linkedin.com',
-  'pinterest.com',
-  'youtube.com',
-  'tiktok.com',
-  'wikipedia.org',
-  'wikimedia.org',
-  'reddit.com',
-  'quora.com',
-  'amazon.com',
-  'ebay.com',
-  'walmart.com',
-  'target.com',
-  'tripadvisor.com',
-  'justia.com',
-  'findlaw.com',
-  'avvo.com',
-  'lawyers.com',
-  'apple.com',
-  'google.com',
-  'bing.com',
-  'duckduckgo.com',
-  'yahoo.com'
+  'yelp.com', 'yellowpages.com', 'superpages.com', 'angi.com', 'angieslist.com',
+  'thumbtack.com', 'homeadvisor.com', 'houzz.com', 'bbb.org', 'expertise.com',
+  'mapquest.com', 'manta.com', 'citysearch.com', 'merchantcircle.com',
+  'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com',
+  'pinterest.com', 'youtube.com', 'tiktok.com', 'wikipedia.org', 'wikimedia.org',
+  'reddit.com', 'quora.com', 'amazon.com', 'ebay.com', 'walmart.com', 'target.com',
+  'tripadvisor.com', 'justia.com', 'findlaw.com', 'avvo.com', 'lawyers.com',
+  'apple.com', 'google.com', 'bing.com', 'duckduckgo.com', 'yahoo.com'
 ]);
 
-function isDirectory(domain) {
+function isDirDomain(domain) {
   if (!domain) return true;
   const d = domain.toLowerCase().replace(/^www\./i, '');
   if (KNOWN_DIRECTORIES.has(d)) return true;
   for (const dir of KNOWN_DIRECTORIES) {
-    if (d === dir || d.endsWith('.' + dir)) return true;
+    if (d.endsWith('.' + dir)) return true;
   }
   return false;
 }
 
-function cleanTitle(raw) {
+function cleanHtml(raw) {
   if (!raw) return '';
   return raw
     .replace(/<[^>]+>/g, '')
@@ -70,37 +38,63 @@ function cleanTitle(raw) {
     .trim();
 }
 
-function extractCompanyName(title, domain) {
+function extractCompany(title, domain) {
   if (!title || title.trim().length === 0) {
-    return cleanDomainName(domain);
+    return domainToName(domain);
   }
-  const clean = cleanTitle(title);
-  // Split by common separators: | , - , – , — , : , • , »
-  const parts = clean.split(/\s*[-–—|:•»]\s*/);
+  const parts = title.split(/\s*[-–—|:•»]\s*/);
   if (parts.length > 0 && parts[0].trim().length >= 2 && parts[0].trim().length <= 55) {
-    const candidate = parts[0].trim();
-    // If first part is not a generic descriptor like "10 Best", "Top 10"
-    if (!/^(10|top|best|the\s+best|find|how\s+to|what\s+is)\b/i.test(candidate)) {
-      return candidate;
+    if (!/^(10|top\s*\d|best|the\s+best|find|how\s+to|what\s+is|updated)/i.test(parts[0].trim())) {
+      return parts[0].trim();
     }
   }
-  return cleanDomainName(domain);
+  return domainToName(domain);
 }
 
-function cleanDomainName(domain) {
+function domainToName(domain) {
   if (!domain) return '';
   const base = domain.replace(/\.(com|org|net|co\.uk|io|ai|biz|us|law|app|dev|co|me|ca|uk|info)$/i, '');
-  return base
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase());
+  return base.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
+// DDG region codes for country filtering
+const DDG_REGIONS = {
+  'us': 'us-en',
+  'uk': 'uk-en',
+  'ca': 'ca-en',
+  'au': 'au-en',
+  'in': 'in-en',
+  'de': 'de-de',
+  'fr': 'fr-fr',
+  'es': 'es-es',
+  'it': 'it-it',
+  'br': 'br-pt',
+  'mx': 'mx-es',
+  'nl': 'nl-nl',
+  'se': 'se-sv',
+  'no': 'no-no',
+  'dk': 'dk-da',
+  'nz': 'nz-en',
+  'ie': 'ie-en',
+  'sg': 'sg-en',
+  'za': 'za-en',
+  'ae': 'ae-en',
+  'pk': 'pk-en',
+  'ph': 'ph-en',
+  'global': ''
+};
+
 /**
- * 1. DuckDuckGo HTML & Lite Search Fetcher
+ * Engine 1: DuckDuckGo HTML scraper
  */
-async function fetchDuckDuckGo(query) {
-  const leads = [];
+async function fetchDuckDuckGoHTML(query, region) {
+  const results = [];
   try {
+    const params = { q: query };
+    if (region && DDG_REGIONS[region]) {
+      params.kl = DDG_REGIONS[region];
+    }
+
     const res = await fetch('https://html.duckduckgo.com/html/', {
       method: 'POST',
       headers: {
@@ -109,177 +103,146 @@ async function fetchDuckDuckGo(query) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
+      body: new URLSearchParams(params)
+    });
+
+    if (!res.ok) return results;
+
+    const html = await res.text();
+
+    // Parse title links: <a class="result__a" href="URL">Title</a>
+    const titleRegex = /class="result__a"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /class="result__snippet"\s+href="[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+
+    let match;
+    const hrefs = [];
+    const titles = [];
+
+    while ((match = titleRegex.exec(html)) !== null) {
+      let rawHref = match[1];
+      // Handle DDG redirect URLs
+      const uddg = rawHref.match(/uddg=([^&]+)/);
+      const cleanUrl = uddg ? decodeURIComponent(uddg[1]) : rawHref;
+      if (cleanUrl && cleanUrl.startsWith('http')) {
+        hrefs.push(cleanUrl);
+        titles.push(cleanHtml(match[2]));
+      }
+    }
+
+    const snippets = [];
+    while ((match = snippetRegex.exec(html)) !== null) {
+      snippets.push(cleanHtml(match[1]));
+    }
+
+    for (let i = 0; i < hrefs.length; i++) {
+      results.push({
+        url: hrefs[i],
+        title: titles[i] || '',
+        snippet: snippets[i] || ''
+      });
+    }
+  } catch (e) {
+    // Engine failed, continue to fallback
+  }
+  return results;
+}
+
+/**
+ * Engine 2: DuckDuckGo Lite fallback
+ */
+async function fetchDuckDuckGoLite(query) {
+  const results = [];
+  try {
+    const res = await fetch('https://lite.duckduckgo.com/lite/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+      },
       body: new URLSearchParams({ q: query })
     });
 
-    if (res.ok) {
-      const html = await res.text();
-      // Match result blocks
-      const linkRegex = /<a[^>]*class="[^"]*result__url[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-      const titleRegex = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-      const snippetRegex = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+    if (!res.ok) return results;
 
-      // Extract results from main links
-      let match;
-      const titles = [];
-      const hrefs = [];
-      while ((match = titleRegex.exec(html)) !== null) {
-        let rawHref = match[1];
-        const uddg = rawHref.match(/uddg=([^&]+)/);
-        const cleanHref = uddg ? decodeURIComponent(uddg[1]) : rawHref;
-        if (cleanHref && cleanHref.startsWith('http')) {
-          hrefs.push(cleanHref);
-          titles.push(cleanTitle(match[2]));
-        }
-      }
+    const html = await res.text();
 
-      const snippets = [];
-      while ((match = snippetRegex.exec(html)) !== null) {
-        snippets.push(cleanTitle(match[1]));
-      }
+    // DDG Lite has a simpler structure with result-link class
+    const linkRegex = /class="result-link"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
 
-      for (let i = 0; i < hrefs.length; i++) {
-        leads.push({
-          url: hrefs[i],
-          title: titles[i] || '',
-          snippet: snippets[i] || ''
-        });
+    let match;
+    const hrefs = [];
+    const titles = [];
+
+    while ((match = linkRegex.exec(html)) !== null) {
+      let rawHref = match[1];
+      const uddg = rawHref.match(/uddg=([^&]+)/);
+      const cleanUrl = uddg ? decodeURIComponent(uddg[1]) : rawHref;
+      if (cleanUrl && cleanUrl.startsWith('http')) {
+        hrefs.push(cleanUrl);
+        titles.push(cleanHtml(match[2]));
       }
     }
-  } catch (e) {
-    // Continue to fallback engine
-  }
 
-  // If standard DDG returned empty, try DDG Lite
-  if (leads.length === 0) {
-    try {
-      const liteRes = await fetch('https://lite.duckduckgo.com/lite/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
-        },
-        body: new URLSearchParams({ q: query })
+    const snippets = [];
+    while ((match = snippetRegex.exec(html)) !== null) {
+      snippets.push(cleanHtml(match[1]));
+    }
+
+    for (let i = 0; i < hrefs.length; i++) {
+      results.push({
+        url: hrefs[i],
+        title: titles[i] || '',
+        snippet: snippets[i] || ''
       });
-      if (liteRes.ok) {
-        const liteHtml = await liteRes.text();
-        const liteLinkRegex = /<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-        const liteSnippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
-
-        let lm;
-        const liteHrefs = [];
-        const liteTitles = [];
-        while ((lm = liteLinkRegex.exec(liteHtml)) !== null) {
-          let rawHref = lm[1];
-          const uddg = rawHref.match(/uddg=([^&]+)/);
-          const cleanHref = uddg ? decodeURIComponent(uddg[1]) : rawHref;
-          if (cleanHref && cleanHref.startsWith('http')) {
-            liteHrefs.push(cleanHref);
-            liteTitles.push(cleanTitle(lm[2]));
-          }
-        }
-
-        const liteSnippets = [];
-        while ((lm = liteSnippetRegex.exec(liteHtml)) !== null) {
-          liteSnippets.push(cleanTitle(lm[1]));
-        }
-
-        for (let i = 0; i < liteHrefs.length; i++) {
-          leads.push({
-            url: liteHrefs[i],
-            title: liteTitles[i] || '',
-            snippet: liteSnippets[i] || ''
-          });
-        }
-      }
-    } catch (e) {}
-  }
-
-  return leads;
+    }
+  } catch (e) {}
+  return results;
 }
 
 /**
- * 2. Bing Search Engine Parser Fallback
+ * Engine 3: Bing fallback
  */
-async function fetchBingSearch(query) {
-  const leads = [];
+async function fetchBing(query) {
+  const results = [];
   try {
     const encoded = encodeURIComponent(query);
     const res = await fetch(`https://www.bing.com/search?q=${encoded}&setmkt=en-US&setlang=en`, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9'
-      }
-    });
-
-    if (res.ok) {
-      const html = await res.text();
-      // Match <h2><a href="URL">Title</a></h2>
-      const bingRegex = /<li[^>]*class="b_algo"[^>]*>[\s\S]*?<h2><a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>[\s\S]*?(?:<p[^>]*>([\s\S]*?)<\/p>)?/gi;
-      let match;
-      while ((match = bingRegex.exec(html)) !== null) {
-        const href = match[1];
-        if (href && href.startsWith('http') && !href.includes('bing.com') && !href.includes('microsoft.com')) {
-          leads.push({
-            url: href,
-            title: cleanTitle(match[2]),
-            snippet: cleanTitle(match[3] || '')
-          });
-        }
-      }
-    }
-  } catch (e) {}
-  return leads;
-}
-
-/**
- * 3. Yahoo Search Fallback
- */
-async function fetchYahooSearch(query) {
-  const leads = [];
-  try {
-    const encoded = encodeURIComponent(query);
-    const res = await fetch(`https://search.yahoo.com/search?p=${encoded}&ei=UTF-8`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       }
     });
 
-    if (res.ok) {
-      const html = await res.text();
-      const yahooRegex = /<h3[^>]*class="title"[^>]*><a[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/h3>[\s\S]*?(?:<span[^>]*class="[^"]*compText[^"]*"[^>]*>([\s\S]*?)<\/span>|<p[^>]*class="[^"]*lh-16[^"]*"[^>]*>([\s\S]*?)<\/p>)?/gi;
-      let match;
-      while ((match = yahooRegex.exec(html)) !== null) {
-        let rawHref = match[1];
-        // Decode Yahoo redirect: /RU=url/RK=...
-        const ruMatch = rawHref.match(/\/RU=([^/]+)/);
-        const cleanHref = ruMatch ? decodeURIComponent(ruMatch[1]) : rawHref;
+    if (!res.ok) return results;
 
-        if (cleanHref && cleanHref.startsWith('http') && !cleanHref.includes('yahoo.com')) {
-          leads.push({
-            url: cleanHref,
-            title: cleanTitle(match[2]),
-            snippet: cleanTitle(match[3] || match[4] || '')
-          });
-        }
+    const html = await res.text();
+
+    // Bing result structure: <li class="b_algo"><h2><a href="URL">Title</a></h2>...<p>Snippet</p>
+    const bingRegex = /<li\s+class="b_algo"[^>]*>[\s\S]*?<h2><a\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a><\/h2>[\s\S]*?(?:<p[^>]*>([\s\S]*?)<\/p>)?/gi;
+    let match;
+    while ((match = bingRegex.exec(html)) !== null) {
+      if (match[1] && match[1].startsWith('http') && !match[1].includes('bing.com') && !match[1].includes('microsoft.com')) {
+        results.push({
+          url: match[1],
+          title: cleanHtml(match[2]),
+          snippet: cleanHtml(match[3] || '')
+        });
       }
     }
   } catch (e) {}
-  return leads;
+  return results;
 }
 
 export default async function handler(req, res) {
-  // Set CORS headers
+  // CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
 
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
@@ -287,68 +250,58 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { query, limit = 20, excludeDirectories = true } = req.body || {};
+    const { query, limit = 20, excludeDirectories = true, region = 'global' } = req.body || {};
     if (!query || !query.trim()) {
       return res.status(400).json({ error: 'Query is required' });
     }
 
     const cleanQuery = query.trim();
 
-    // 1. Gather results across multiple search engines
-    let rawResults = await fetchDuckDuckGo(cleanQuery);
+    // 1. Try DDG HTML first
+    let rawResults = await fetchDuckDuckGoHTML(cleanQuery, region);
 
+    // 2. If few results, try DDG Lite
     if (rawResults.length < 5) {
-      const bingResults = await fetchBingSearch(cleanQuery);
+      const liteResults = await fetchDuckDuckGoLite(cleanQuery);
+      rawResults = [...rawResults, ...liteResults];
+    }
+
+    // 3. If still few, try Bing
+    if (rawResults.length < 5) {
+      const bingResults = await fetchBing(cleanQuery);
       rawResults = [...rawResults, ...bingResults];
     }
 
-    if (rawResults.length < 5) {
-      const yahooResults = await fetchYahooSearch(cleanQuery);
-      rawResults = [...rawResults, ...yahooResults];
-    }
-
-    // 2. Normalize, filter directories, and deduplicate
+    // 4. Normalize, filter directories, deduplicate
     const finalLeads = [];
     const seenDomains = new Set();
 
-    for (let i = 0; i < rawResults.length; i++) {
-      if (finalLeads.length >= limit) break;
-
+    for (let i = 0; i < rawResults.length && finalLeads.length < limit; i++) {
       const item = rawResults[i];
-      let cleanUrl = item.url;
+      let url = item.url;
 
       try {
-        if (!cleanUrl.startsWith('http')) {
-          cleanUrl = 'https://' + cleanUrl;
-        }
-
-        const parsed = new URL(cleanUrl);
+        if (!url.startsWith('http')) url = 'https://' + url;
+        const parsed = new URL(url);
         const domain = parsed.hostname.replace(/^www\./i, '').toLowerCase();
 
-        // Check if valid web domain
         if (!domain || domain.length < 3 || !domain.includes('.')) continue;
-
-        // Directory exclusion
-        if (excludeDirectories && isDirectory(domain)) {
-          continue;
-        }
-
-        // Domain deduplication
+        if (excludeDirectories && isDirDomain(domain)) continue;
         if (seenDomains.has(domain)) continue;
         seenDomains.add(domain);
 
-        const company = extractCompanyName(item.title, domain);
+        const company = extractCompany(item.title, domain);
         const cityMatch = cleanQuery.match(/(?:in|near|for|around)\s+([a-zA-Z\s,]+)/i);
         const detectedCity = cityMatch ? cityMatch[1].trim() : '';
 
         finalLeads.push({
           id: `serp_${Date.now()}_${finalLeads.length + 1}`,
-          url: cleanUrl,
+          url,
           domain,
           title: item.title || domain,
-          snippet: item.snippet || `Ranking result for query: "${cleanQuery}"`,
+          snippet: item.snippet || `Ranking result for: "${cleanQuery}"`,
           originalData: {
-            website: cleanUrl,
+            website: url,
             domain,
             company,
             city: detectedCity,
@@ -356,14 +309,14 @@ export default async function handler(req, res) {
             source: `Live SERP: "${cleanQuery}"`
           }
         });
-      } catch (err) {
-        // Skip malformed URLs
-      }
+      } catch (e) {}
     }
 
     return res.status(200).json({
       success: true,
       query: cleanQuery,
+      region: region || 'global',
+      enginesUsed: rawResults.length > 0 ? 'DDG' : 'multi',
       totalFound: finalLeads.length,
       leads: finalLeads
     });

@@ -126,8 +126,9 @@ function apiMiddlewarePlugin() {
                 });
                 if (ddgRes.ok) {
                   const html = await ddgRes.text();
-                  const titleRegex = /<a[^>]*class="[^"]*result__a[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-                  const snippetRegex = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+                  // Proven regex: class="result__a" href="URL">Title</a>
+                  const titleRegex = /class="result__a"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+                  const snippetRegex = /class="result__snippet"\s+href="[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
                   let match;
                   const hrefs = [], titles = [];
                   while ((match = titleRegex.exec(html)) !== null) {
@@ -162,8 +163,8 @@ function apiMiddlewarePlugin() {
                   });
                   if (liteRes.ok) {
                     const liteHtml = await liteRes.text();
-                    const liteLinkRegex = /<a[^>]*class="result-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-                    const liteSnippetRegex = /<td[^>]*class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
+                    const liteLinkRegex = /class="result-link"\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+                    const liteSnippetRegex = /class="result-snippet"[^>]*>([\s\S]*?)<\/td>/gi;
                     let lm;
                     const liteHrefs = [], liteTitles = [];
                     while ((lm = liteLinkRegex.exec(liteHtml)) !== null) {

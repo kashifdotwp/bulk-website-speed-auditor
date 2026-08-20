@@ -41,7 +41,7 @@ export const QUERY_CATEGORIES = [
  * @param {number} limit - Number of leads to fetch (default 20)
  * @param {boolean} excludeDirectories - Exclude Yelp, Justia, social media etc.
  */
-export async function searchSerpLeads(query, limit = 20, excludeDirectories = true) {
+export async function searchSerpLeads(query, limit = 20, excludeDirectories = true, region = 'global') {
   if (!query || !query.trim()) return [];
 
   try {
@@ -53,7 +53,8 @@ export async function searchSerpLeads(query, limit = 20, excludeDirectories = tr
       body: JSON.stringify({
         query: query.trim(),
         limit,
-        excludeDirectories
+        excludeDirectories,
+        region
       })
     });
 

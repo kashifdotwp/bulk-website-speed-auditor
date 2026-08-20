@@ -15,6 +15,7 @@ export default function SerpFinderSection({
   const [copiedDomains, setCopiedDomains] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
   const [presetFilter, setPresetFilter] = useState('all');
+  const [region, setRegion] = useState('global');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSearch = async (targetQuery = query) => {
@@ -23,7 +24,7 @@ export default function SerpFinderSection({
     setSearchDone(true);
     setErrorMsg('');
     try {
-      const results = await searchSerpLeads(targetQuery, limit, excludeDirectories);
+      const results = await searchSerpLeads(targetQuery, limit, excludeDirectories, region);
       setDiscoveredLeads(results);
       setSelectedIds(new Set(results.map(r => r.id)));
     } catch (err) {
@@ -156,6 +157,46 @@ export default function SerpFinderSection({
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
             disabled={isLoading || isRunning}
           />
+        </div>
+
+        {/* Country / Region */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <select
+            value={region}
+            onChange={e => setRegion(e.target.value)}
+            disabled={isLoading || isRunning}
+            style={{
+              background: 'var(--bg-input)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-subtle)',
+              padding: '0.65rem 0.85rem',
+              borderRadius: 'var(--radius-md)',
+              fontSize: '0.85rem',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="global">🌐 Global</option>
+            <option value="us">🇺🇸 United States</option>
+            <option value="uk">🇬🇧 United Kingdom</option>
+            <option value="ca">🇨🇦 Canada</option>
+            <option value="au">🇦🇺 Australia</option>
+            <option value="in">🇮🇳 India</option>
+            <option value="de">🇩🇪 Germany</option>
+            <option value="fr">🇫🇷 France</option>
+            <option value="es">🇪🇸 Spain</option>
+            <option value="it">🇮🇹 Italy</option>
+            <option value="br">🇧🇷 Brazil</option>
+            <option value="mx">🇲🇽 Mexico</option>
+            <option value="nl">🇳🇱 Netherlands</option>
+            <option value="nz">🇳🇿 New Zealand</option>
+            <option value="ie">🇮🇪 Ireland</option>
+            <option value="sg">🇸🇬 Singapore</option>
+            <option value="ae">🇦🇪 UAE</option>
+            <option value="pk">🇵🇰 Pakistan</option>
+            <option value="ph">🇵🇭 Philippines</option>
+            <option value="za">🇿🇦 South Africa</option>
+          </select>
         </div>
 
         {/* Depth Limit */}
