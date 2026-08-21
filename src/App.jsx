@@ -12,6 +12,7 @@ import ExportModal from './components/ExportModal';
 import SerpFinderSection from './components/SerpFinderSection';
 import AnalyticsView from './components/AnalyticsView';
 import ProjectDataModal from './components/ProjectDataModal';
+import ShortlistView from './components/ShortlistView';
 
 import { AuditQueueEngine } from './services/queueEngine';
 import { autoDetectCategory } from './services/categories';
@@ -29,6 +30,12 @@ import {
   loadPreferences,
   saveShortlistedIds,
   loadShortlistedIds,
+  saveShortlistOrder,
+  loadShortlistOrder,
+  saveShortlistNotes,
+  loadShortlistNotes,
+  saveShortlistOutreachStatus,
+  loadShortlistOutreachStatus,
   saveLeadStatusMap,
   loadLeadStatusMap,
   saveCategoryMap,
@@ -74,6 +81,9 @@ export default function App() {
 
   const [results, setResults] = useState(() => loadAuditResults());
   const [shortlistedIds, setShortlistedIds] = useState(() => loadShortlistedIds());
+  const [shortlistOrder, setShortlistOrder] = useState(() => loadShortlistOrder());
+  const [shortlistNotes, setShortlistNotes] = useState(() => loadShortlistNotes());
+  const [shortlistOutreachStatus, setShortlistOutreachStatus] = useState(() => loadShortlistOutreachStatus());
   const [leadStatusMap, setLeadStatusMap] = useState(() => loadLeadStatusMap());
   const [categoryMap, setCategoryMap] = useState(() => loadCategoryMap());
   const [emailMap, setEmailMap] = useState(() => loadEmailMap());
@@ -113,6 +123,21 @@ export default function App() {
   useEffect(() => {
     saveShortlistedIds(shortlistedIds);
   }, [shortlistedIds]);
+
+  // Sync shortlist sequence order
+  useEffect(() => {
+    saveShortlistOrder(shortlistOrder);
+  }, [shortlistOrder]);
+
+  // Sync shortlist notes
+  useEffect(() => {
+    saveShortlistNotes(shortlistNotes);
+  }, [shortlistNotes]);
+
+  // Sync shortlist outreach statuses
+  useEffect(() => {
+    saveShortlistOutreachStatus(shortlistOutreachStatus);
+  }, [shortlistOutreachStatus]);
 
   // Sync status map
   useEffect(() => {
@@ -327,6 +352,13 @@ export default function App() {
       for (const id of selectedIds) next.add(id);
       return next;
     });
+    setShortlistOrder(prev => {
+      const next = [...prev];
+      for (const id of selectedIds) {
+        if (!next.includes(id)) next.push(id);
+      }
+      return next;
+    });
     setSelectedIds(new Set());
   };
 
@@ -353,6 +385,9 @@ export default function App() {
       clearAuditResults();
       setResults([]);
       setShortlistedIds(new Set());
+      setShortlistOrder([]);
+      setShortlistNotes({});
+      setShortlistOutreachStatus({});
       setLeadStatusMap({});
       setCategoryMap({});
       setEmailMap({});
@@ -367,10 +402,43 @@ export default function App() {
   const handleToggleShortlist = (id) => {
     setShortlistedIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        setShortlistOrder(orderPrev => orderPrev.filter(item => item !== id));
+      } else {
+        next.add(id);
+        setShortlistOrder(orderPrev => (orderPrev.includes(id) ? orderPrev : [...orderPrev, id]));
+      }
       return next;
     });
+  };
+
+  const handleUpdateShortlistStatus = (id, status) => {
+    setShortlistOutreachStatus(prev => ({
+      ...prev,
+      [id]: status
+    }));
+  };
+
+  const handleUpdateShortlistNotes = (id, notes) => {
+    setShortlistNotes(prev => ({
+      ...prev,
+      [id]: notes
+    }));
+  };
+
+  const handleRemoveFromShortlist = (id) => {
+    setShortlistedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setShortlistOrder(prev => prev.filter(item => item !== id));
+  };
+
+  const handleClearAllShortlist = () => {
+    setShortlistedIds(new Set());
+    setShortlistOrder([]);
   };
 
   const handleChangeLeadStatus = (id, newStatus) => {
@@ -398,9 +466,12 @@ export default function App() {
     }));
   };
 
-  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap, newDrMap) => {
+  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap, newDrMap, newShortlistOrder, newShortlistNotes, newShortlistOutreachStatus) => {
     setResults(newResults);
     setShortlistedIds(newShortlisted);
+    if (newShortlistOrder) setShortlistOrder(newShortlistOrder);
+    if (newShortlistNotes) setShortlistNotes(newShortlistNotes);
+    if (newShortlistOutreachStatus) setShortlistOutreachStatus(newShortlistOutreachStatus);
     setLeadStatusMap(newStatusMap);
     if (newCategoryMap) setCategoryMap(newCategoryMap);
     if (newEmailMap) setEmailMap(newEmailMap);
@@ -481,60 +552,73 @@ export default function App() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(r => {
-        const d = (r.domain || '').toLowerCase();
-        const c = (r.originalData?.company || '').toLowerCase();
-        const e = (emailMap[r.id] || r.originalData?.email || '').toLowerCase();
+        const domain = (r.domain || r.url || '').toLowerCase();
+        const comp = (r.originalData?.company || '').toLowerCase();
         const city = (r.originalData?.city || '').toLowerCase();
-        return d.includes(q) || c.includes(q) || e.includes(q) || city.includes(q);
+        const email = (emailMap[r.domain] || emailMap[r.id] || r.originalData?.email || '').toLowerCase();
+        return domain.includes(q) || comp.includes(q) || city.includes(q) || email.includes(q);
       });
     }
 
     // 4. Sort
     list.sort((a, b) => {
-      const aScore = a.mobile?.score ?? a.score ?? 999;
-      const bScore = b.mobile?.score ?? b.score ?? 999;
-      const aDr = drMap[a.id] ?? drMap[a.domain] ?? -1;
-      const bDr = drMap[b.id] ?? drMap[b.domain] ?? -1;
+      const aScore = a.mobile?.score ?? a.score ?? 0;
+      const bScore = b.mobile?.score ?? b.score ?? 0;
 
       if (sortBy === 'score_asc') return aScore - bScore;
       if (sortBy === 'score_desc') return bScore - aScore;
-      if (sortBy === 'dr_desc') return bDr - aDr;
-      if (sortBy === 'dr_asc') return (aDr === -1 ? 999 : aDr) - (bDr === -1 ? 999 : bDr);
-      if (sortBy === 'lcp_desc') return (b.metrics?.lcp?.value || 0) - (a.metrics?.lcp?.value || 0);
-      if (sortBy === 'tbt_desc') return (b.metrics?.tbt?.value || 0) - (a.metrics?.tbt?.value || 0);
-      if (sortBy === 'domain_asc') return (a.domain || '').localeCompare(b.domain || '');
+
+      if (sortBy === 'dr_desc') {
+        const aDr = drMap[a.id] ?? drMap[a.domain] ?? -1;
+        const bDr = drMap[b.id] ?? drMap[b.domain] ?? -1;
+        return bDr - aDr;
+      }
+      if (sortBy === 'dr_asc') {
+        const aDr = drMap[a.id] ?? drMap[a.domain] ?? 999;
+        const bDr = drMap[b.id] ?? drMap[b.domain] ?? 999;
+        return aDr - bDr;
+      }
+
+      if (sortBy === 'lcp_desc') {
+        const aLcp = a.mobile?.cwv?.lcp?.numericValue || 0;
+        const bLcp = b.mobile?.cwv?.lcp?.numericValue || 0;
+        return bLcp - aLcp;
+      }
+      if (sortBy === 'tbt_desc') {
+        const aTbt = a.mobile?.cwv?.tbt?.numericValue || 0;
+        const bTbt = b.mobile?.cwv?.tbt?.numericValue || 0;
+        return bTbt - aTbt;
+      }
+      if (sortBy === 'domain_asc') {
+        return (a.domain || a.url).localeCompare(b.domain || b.url);
+      }
       return 0;
     });
 
     return list;
   }, [results, filterTier, filterCategory, searchQuery, sortBy, shortlistedIds, categoryMap, emailMap, drMap]);
 
-  // Counts for Filter Chips
+  // Counts for filter pills
   const filterCounts = useMemo(() => {
-    return {
-      all: results.length,
-      shortlisted: results.filter(r => shortlistedIds.has(r.id)).length,
-      poor: results.filter(r => r.success && (r.mobile?.score ?? r.score ?? 0) < 50).length,
-      average: results.filter(r => {
+    const counts = { all: results.length, poor: 0, average: 0, good: 0, error: 0, shortlisted: shortlistedIds.size };
+    results.forEach(r => {
+      if (!r.success) counts.error++;
+      else {
         const s = r.mobile?.score ?? r.score ?? 0;
-        return r.success && s >= 50 && s < 90;
-      }).length,
-      good: results.filter(r => {
-        const s = r.mobile?.score ?? r.score ?? 0;
-        return r.success && s >= 90;
-      }).length,
-      error: results.filter(r => !r.success).length
-    };
+        if (s < 50) counts.poor++;
+        else if (s < 90) counts.average++;
+        else counts.good++;
+      }
+    });
+    return counts;
   }, [results, shortlistedIds]);
 
-  // Category counts
   const categoryCounts = useMemo(() => {
-    const counts = { saas: 0, ecommerce: 0, local: 0, agency: 0, other: 0 };
-    for (const r of results) {
+    const counts = {};
+    results.forEach(r => {
       const cat = categoryMap[r.id] || autoDetectCategory(r);
-      if (counts[cat] !== undefined) counts[cat]++;
-      else counts.other++;
-    }
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
     return counts;
   }, [results, categoryMap]);
 
@@ -542,7 +626,7 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Navbar with Tab Views */}
+      {/* App Header & Navigation */}
       <Header
         activeView={activeView}
         onViewChange={setActiveView}
@@ -557,6 +641,7 @@ export default function App() {
         onClearData={handleClearData}
         hasData={results.length > 0}
         isRunning={isRunning}
+        shortlistedCount={shortlistedIds.size}
       />
 
       {/* VIEW 1: SERP Lead Finder */}
@@ -567,12 +652,31 @@ export default function App() {
         />
       )}
 
-      {/* VIEW 2: Analytics & Velocity */}
+      {/* VIEW 2: Shortlisted Leads & Outreach CRM */}
+      {activeView === 'shortlist' && (
+        <ShortlistView
+          shortlistedResults={results.filter(r => shortlistedIds.has(r.id))}
+          shortlistOrder={shortlistOrder}
+          shortlistNotes={shortlistNotes}
+          shortlistOutreachStatus={shortlistOutreachStatus}
+          onUpdateStatus={handleUpdateShortlistStatus}
+          onUpdateNotes={handleUpdateShortlistNotes}
+          onRemoveFromShortlist={handleRemoveFromShortlist}
+          onClearAllShortlist={handleClearAllShortlist}
+          onOpenPitch={(lead) => setActivePitchLead(lead)}
+          emailMap={emailMap}
+          onSaveEmail={handleChangeEmail}
+          drMap={drMap}
+          onSwitchToAuditView={() => setActiveView('audit')}
+        />
+      )}
+
+      {/* VIEW 3: Analytics & Velocity */}
       {activeView === 'analytics' && (
         <AnalyticsView results={results} />
       )}
 
-      {/* VIEW 3: Main Audit Engine */}
+      {/* VIEW 4: Main Audit Engine */}
       {activeView === 'audit' && (
         <>
           {/* Top Dedicated Ahrefs Settings Bar */}
@@ -669,6 +773,9 @@ export default function App() {
         onClose={() => setIsBackupModalOpen(false)}
         results={results}
         shortlistedIds={shortlistedIds}
+        shortlistOrder={shortlistOrder}
+        shortlistNotes={shortlistNotes}
+        shortlistOutreachStatus={shortlistOutreachStatus}
         leadStatusMap={leadStatusMap}
         categoryMap={categoryMap}
         emailMap={emailMap}

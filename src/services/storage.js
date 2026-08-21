@@ -9,6 +9,9 @@ const STORAGE_KEYS = {
   AHREFS_API_KEY: 'nmd_ahrefs_api_key',
   AUDIT_RESULTS: 'nmd_audit_results_v2',
   SHORTLISTED_IDS: 'nmd_shortlisted_ids',
+  SHORTLIST_ORDER: 'nmd_shortlist_order',
+  SHORTLIST_NOTES: 'nmd_shortlist_notes',
+  SHORTLIST_OUTREACH_STATUS: 'nmd_shortlist_outreach_status',
   STATUS_MAP: 'nmd_lead_status_map',
   CATEGORY_MAP: 'nmd_lead_category_map',
   EMAIL_MAP: 'nmd_lead_email_map',
@@ -84,6 +87,57 @@ export function loadShortlistedIds() {
     return new Set(raw ? JSON.parse(raw) : []);
   } catch {
     return new Set();
+  }
+}
+
+export function saveShortlistOrder(orderArray) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHORTLIST_ORDER, JSON.stringify(orderArray || []));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadShortlistOrder() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SHORTLIST_ORDER);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveShortlistNotes(notesMap) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHORTLIST_NOTES, JSON.stringify(notesMap || {}));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadShortlistNotes() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SHORTLIST_NOTES);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveShortlistOutreachStatus(statusMap) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.SHORTLIST_OUTREACH_STATUS, JSON.stringify(statusMap || {}));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadShortlistOutreachStatus() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SHORTLIST_OUTREACH_STATUS);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
   }
 }
 
@@ -192,14 +246,20 @@ export function loadPreferences() {
 /**
  * Creates a complete JSON project backup bundle (Zero Data Loss)
  */
-export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey) {
+/**
+ * Creates a complete JSON project backup bundle (Zero Data Loss)
+ */
+export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey, shortlistOrder, shortlistNotes, shortlistOutreachStatus) {
   const backupData = {
     appName: 'Needle Mover Detector',
-    version: '2.3.0',
+    version: '2.4.0',
     exportedAt: new Date().toISOString(),
     itemCount: results.length,
     results,
     shortlistedIds: Array.from(shortlistedIds),
+    shortlistOrder: shortlistOrder || [],
+    shortlistNotes: shortlistNotes || {},
+    shortlistOutreachStatus: shortlistOutreachStatus || {},
     leadStatusMap,
     categoryMap: categoryMap || {},
     emailMap: emailMap || {},
@@ -238,6 +298,9 @@ export function parseProjectBackupFile(file) {
           success: true,
           results: parsed.results,
           shortlistedIds: new Set(parsed.shortlistedIds || []),
+          shortlistOrder: parsed.shortlistOrder || [],
+          shortlistNotes: parsed.shortlistNotes || {},
+          shortlistOutreachStatus: parsed.shortlistOutreachStatus || {},
           leadStatusMap: parsed.leadStatusMap || {},
           categoryMap: parsed.categoryMap || {},
           emailMap: parsed.emailMap || {},

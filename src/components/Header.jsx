@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Zap,
   Smartphone,
@@ -12,7 +11,8 @@ import {
   LayoutDashboard,
   Sun,
   Moon,
-  TrendingUp
+  TrendingUp,
+  Star
 } from 'lucide-react';
 
 export default function Header({
@@ -28,7 +28,8 @@ export default function Header({
   onOpenBackupModal,
   onClearData,
   hasData,
-  isRunning
+  isRunning,
+  shortlistedCount = 0
 }) {
   const hasAnyKey = Boolean(apiKey || ahrefsKey);
 
@@ -52,7 +53,7 @@ export default function Header({
       </div>
 
       {/* Main Navigation Views */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--bg-primary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--bg-primary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', flexWrap: 'wrap' }}>
         <button
           type="button"
           className={`strategy-btn ${activeView === 'audit' ? 'active' : ''}`}
@@ -67,6 +68,32 @@ export default function Header({
           onClick={() => onViewChange('serp')}
         >
           <Search size={14} /> SERP Lead Finder
+        </button>
+
+        <button
+          type="button"
+          className={`strategy-btn ${activeView === 'shortlist' ? 'active' : ''}`}
+          onClick={() => onViewChange('shortlist')}
+          style={{
+            position: 'relative',
+            color: activeView === 'shortlist' ? 'var(--text-primary)' : shortlistedCount > 0 ? '#d97706' : 'inherit'
+          }}
+        >
+          <Star size={14} fill={shortlistedCount > 0 ? '#f59e0b' : 'none'} color={shortlistedCount > 0 ? '#f59e0b' : 'currentColor'} />
+          <span>Shortlisted</span>
+          {shortlistedCount > 0 && (
+            <span style={{
+              background: activeView === 'shortlist' ? 'var(--accent-primary)' : '#f59e0b',
+              color: 'white',
+              fontSize: '0.65rem',
+              fontWeight: 800,
+              padding: '0.05rem 0.4rem',
+              borderRadius: '999px',
+              marginLeft: '0.2rem'
+            }}>
+              {shortlistedCount}
+            </span>
+          )}
         </button>
 
         <button

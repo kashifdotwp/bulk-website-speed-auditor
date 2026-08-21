@@ -7,6 +7,9 @@ export default function ProjectDataModal({
   onClose,
   results,
   shortlistedIds,
+  shortlistOrder,
+  shortlistNotes,
+  shortlistOutreachStatus,
   leadStatusMap,
   categoryMap,
   emailMap,
@@ -21,7 +24,19 @@ export default function ProjectDataModal({
   if (!isOpen) return null;
 
   const handleDownloadBackup = () => {
-    exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey);
+    exportProjectBackup(
+      results,
+      shortlistedIds,
+      leadStatusMap,
+      categoryMap,
+      emailMap,
+      drMap,
+      apiKey,
+      ahrefsKey,
+      shortlistOrder,
+      shortlistNotes,
+      shortlistOutreachStatus
+    );
   };
 
   const handleFileUpload = async (file) => {
@@ -38,7 +53,10 @@ export default function ProjectDataModal({
           parsed.leadStatusMap,
           parsed.categoryMap,
           parsed.emailMap,
-          parsed.drMap
+          parsed.drMap,
+          parsed.shortlistOrder,
+          parsed.shortlistNotes,
+          parsed.shortlistOutreachStatus
         );
         setRestoreStatus({
           type: 'success',

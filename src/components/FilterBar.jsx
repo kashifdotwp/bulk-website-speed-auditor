@@ -198,10 +198,11 @@ export default function FilterBar({
             <button
               type="button"
               className="btn btn-secondary"
-              style={{ fontSize: '0.725rem', padding: '0.25rem 0.6rem' }}
+              style={{ fontSize: '0.725rem', padding: '0.25rem 0.65rem', color: '#d97706', borderColor: '#f59e0b', fontWeight: 600 }}
               onClick={onShortlistSelected}
+              title="Move selected prospects into Shortlisted tab in sequence"
             >
-              <Star size={12} fill="#f59e0b" color="#f59e0b" /> Star Selected
+              <Star size={12} fill="#f59e0b" color="#f59e0b" /> ⭐ Shortlist Selected ({selectedCount})
             </button>
 
             <button
