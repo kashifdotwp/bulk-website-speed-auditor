@@ -18,7 +18,11 @@ export default function PitchDrawer({
     if (item) {
       const orig = item.originalData || {};
       const targetEmail = item.resolvedEmail || orig.email || '';
-      const pitch = generatePitch(item, selectedAngle, { ...orig, email: targetEmail });
+      const pitch = generatePitch(
+        { ...item, ahrefsDr: item.ahrefsDr || orig.ahrefsDr },
+        selectedAngle || 'speed_cwv',
+        { ...orig, email: targetEmail }
+      );
       setCustomSubject(pitch.subject);
       setCustomBody(pitch.body);
     }
@@ -29,6 +33,7 @@ export default function PitchDrawer({
   const orig = item.originalData || {};
   const effectiveEmail = item.resolvedEmail || orig.email || '';
   const snippet = buildMailmeteorSnippet(item);
+  const drValue = item.ahrefsDr || orig.ahrefsDr;
 
   const handleCopy = (text, fieldName) => {
     navigator.clipboard.writeText(text);
@@ -44,7 +49,7 @@ export default function PitchDrawer({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="drawer-right" onClick={e => e.stopPropagation()}>
+      <div className="drawer-right" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
         {/* Drawer Header */}
         <div className="drawer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -90,14 +95,19 @@ export default function PitchDrawer({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div className={`score-badge ${item.score < 50 ? 'critical' : item.score < 90 ? 'warning' : 'good'}`} style={{ width: '38px', height: '38px', fontSize: '0.95rem' }}>
-                {item.score}
+                {item.score ?? item.mobile?.score ?? '—'}
               </div>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
-                  Mobile Score: {item.score}/100
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>Mobile: {item.score ?? item.mobile?.score ?? '—'}/100</span>
+                  {drValue !== null && drValue !== undefined && (
+                    <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>
+                      {String(drValue).startsWith('DR') ? drValue : `DR ${drValue}`}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                  LCP: {item.metrics?.lcp?.display} • TBT: {item.metrics?.tbt?.display}
+                  LCP: {item.metrics?.lcp?.display || item.mobile?.cwv?.lcp?.displayValue || '—'} • TBT: {item.metrics?.tbt?.display || item.mobile?.cwv?.tbt?.displayValue || '—'}
                 </div>
               </div>
             </div>
@@ -116,9 +126,9 @@ export default function PitchDrawer({
           {/* Angle Switcher */}
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-              Select Cold Pitch Framework:
+              Select Outreach Framework / Service Pitch:
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.45rem' }}>
               {OUTREACH_ANGLES.map(angle => (
                 <button
                   key={angle.id}
@@ -128,17 +138,17 @@ export default function PitchDrawer({
                     background: selectedAngle === angle.id ? 'rgba(79, 70, 229, 0.1)' : 'var(--bg-primary)',
                     border: `1px solid ${selectedAngle === angle.id ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
                     borderRadius: 'var(--radius-md)',
-                    padding: '0.65rem 0.75rem',
+                    padding: '0.55rem 0.7rem',
                     textAlign: 'left',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '0.25rem',
+                    gap: '0.2rem',
                     transition: 'all 0.15s ease'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: selectedAngle === angle.id ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                    <span style={{ fontSize: '0.775rem', fontWeight: 700, color: selectedAngle === angle.id ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
                       {angle.name}
                     </span>
                   </div>
