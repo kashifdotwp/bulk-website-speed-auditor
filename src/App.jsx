@@ -664,9 +664,15 @@ export default function App() {
           onRemoveFromShortlist={handleRemoveFromShortlist}
           onClearAllShortlist={handleClearAllShortlist}
           onOpenPitch={(lead) => setActivePitchLead(lead)}
+          categoryMap={categoryMap}
+          onChangeCategory={handleChangeCategory}
           emailMap={emailMap}
+          emailStatusMap={emailStatusMap}
           onSaveEmail={handleChangeEmail}
           drMap={drMap}
+          drStatusMap={drStatusMap}
+          onFetchSingleDr={handleFetchSingleDr}
+          onDeleteSingle={handleDeleteSingle}
           onSwitchToAuditView={() => setActiveView('audit')}
         />
       )}

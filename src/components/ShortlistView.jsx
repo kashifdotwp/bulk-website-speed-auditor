@@ -1,26 +1,35 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Star,
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   Mail,
-  Edit2,
+  Copy,
   Check,
-  X,
+  Flame,
+  Zap,
+  CheckCircle2,
+  AlertTriangle,
   FileText,
-  Download,
-  Trash2,
-  MessageSquare,
-  Sparkles,
-  ArrowUpDown,
-  Filter,
-  Search,
   Clock,
-  Send,
-  UserCheck,
-  XCircle,
-  HelpCircle,
-  AlertCircle
+  Star,
+  Smartphone,
+  Monitor,
+  Trash2,
+  Tag,
+  Edit2,
+  Search,
+  Loader2,
+  Plus,
+  RotateCw,
+  AlertCircle,
+  TrendingUp,
+  Download,
+  Send
 } from 'lucide-react';
+import { buildMailmeteorSnippet } from '../services/pitchGenerator';
+import { CATEGORY_DEFINITIONS, autoDetectCategory } from '../services/categories';
+import { getDrBadgeStyles } from '../services/ahrefsApi';
 
 export const OUTREACH_STATUSES = [
   { id: 'not_contacted', label: '⏳ Not Contacted', color: '#64748b', bg: 'rgba(100, 116, 139, 0.12)', border: '#94a3b8' },
@@ -40,18 +49,73 @@ export default function ShortlistView({
   onRemoveFromShortlist,
   onClearAllShortlist,
   onOpenPitch,
+  categoryMap = {},
+  onChangeCategory,
   emailMap = {},
+  emailStatusMap = {},
   onSaveEmail,
   drMap = {},
+  drStatusMap = {},
+  onFetchSingleDr,
+  onDeleteSingle,
   onSwitchToAuditView
 }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [copiedId, setCopiedId] = useState(null);
+  const [copiedEmailId, setCopiedEmailId] = useState(null);
+  const [editingEmailId, setEditingEmailId] = useState(null);
+  const [tempEmailInput, setTempEmailInput] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
-  const [editingEmailId, setEditingEmailId] = useState(null);
-  const [emailDraft, setEmailDraft] = useState('');
-  const [copiedEmailId, setCopiedEmailId] = useState(null);
+
+  const toggleRow = (id) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const copySnippet = (item) => {
+    const snippet = buildMailmeteorSnippet(item);
+    navigator.clipboard.writeText(snippet);
+    setCopiedId(item.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const copyEmail = (email, id) => {
+    if (!email) return;
+    navigator.clipboard.writeText(email);
+    setCopiedEmailId(id);
+    setTimeout(() => setCopiedEmailId(null), 2000);
+  };
+
+  const handleStartEditEmail = (id, currentEmail) => {
+    setEditingEmailId(id);
+    setTempEmailInput(currentEmail || '');
+  };
+
+  const handleSaveEmail = (id) => {
+    if (onSaveEmail) {
+      onSaveEmail(id, tempEmailInput.trim());
+    }
+    setEditingEmailId(null);
+  };
+
+  const handleStartEditNote = (item) => {
+    setEditingNoteId(item.id);
+    setNoteDraft(shortlistNotes[item.id] || '');
+  };
+
+  const handleSaveNote = (id) => {
+    if (onUpdateNotes) {
+      onUpdateNotes(id, noteDraft.trim());
+    }
+    setEditingNoteId(null);
+  };
 
   // Build sorted list maintaining exact user addition sequence
   const orderedList = useMemo(() => {
@@ -89,7 +153,7 @@ export default function ShortlistView({
         const domain = (item.domain || item.url || '').toLowerCase();
         const company = (item.originalData?.company || '').toLowerCase();
         const notes = (shortlistNotes[item.id] || '').toLowerCase();
-        const email = (emailMap[item.domain] || item.originalData?.email || '').toLowerCase();
+        const email = (emailMap?.[item.id] ?? emailMap?.[item.domain] ?? item.originalData?.email ?? '').toLowerCase();
         return domain.includes(q) || company.includes(q) || notes.includes(q) || email.includes(q);
       }
 
@@ -132,21 +196,24 @@ export default function ShortlistView({
       'Company',
       'Outreach Status',
       'Mobile Score',
+      'Desktop Score',
       'Ahrefs DR',
       'Contact Email',
+      'Category',
+      'Top Bottleneck',
       'Notes',
-      'LCP (s)',
-      'FCP (s)',
-      'CLS',
-      'TBT (ms)',
-      'Shortlisted Date'
+      'LCP',
+      'TBT',
+      'FCP',
+      'CLS'
     ];
 
     const rows = orderedList.map((item, idx) => {
       const status = shortlistOutreachStatus[item.id] || 'not_contacted';
       const notes = (shortlistNotes[item.id] || '').replace(/"/g, '""');
-      const email = emailMap[item.domain] || item.originalData?.email || '';
-      const dr = drMap[item.domain] !== undefined && drMap[item.domain] !== null ? drMap[item.domain] : '';
+      const email = emailMap?.[item.id] ?? emailMap?.[item.domain] ?? item.originalData?.email ?? '';
+      const dr = drMap?.[item.id] ?? drMap?.[item.domain] ?? '';
+      const cat = categoryMap?.[item.id] || autoDetectCategory(item);
 
       return [
         idx + 1,
@@ -154,15 +221,17 @@ export default function ShortlistView({
         `"${item.domain || ''}"`,
         `"${(item.originalData?.company || item.domain || '').replace(/"/g, '""')}"`,
         `"${status}"`,
-        item.mobile?.score !== undefined ? item.mobile.score : '',
+        item.mobile?.score ?? item.score ?? '',
+        item.desktop?.score ?? item.desktopScore ?? '',
         dr,
         `"${email}"`,
+        `"${cat}"`,
+        `"${(item.topBottleneck || '').replace(/"/g, '""')}"`,
         `"${notes}"`,
-        item.mobile?.cwv?.lcp?.displayValue || '',
-        item.mobile?.cwv?.fcp?.displayValue || '',
-        item.mobile?.cwv?.cls?.displayValue || '',
-        item.mobile?.cwv?.tbt?.displayValue || '',
-        new Date().toISOString().slice(0, 10)
+        `"${item.metrics?.lcp?.display || ''}"`,
+        `"${item.metrics?.tbt?.display || ''}"`,
+        `"${item.metrics?.fcp?.display || ''}"`,
+        `"${item.metrics?.cls?.display || ''}"`
       ].join(',');
     });
 
@@ -176,52 +245,6 @@ export default function ShortlistView({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  };
-
-  const handleCopyEmail = (email, id) => {
-    if (!email) return;
-    navigator.clipboard.writeText(email);
-    setCopiedEmailId(id);
-    setTimeout(() => setCopiedEmailId(null), 1800);
-  };
-
-  const handleStartEditEmail = (item) => {
-    setEditingEmailId(item.id);
-    setEmailDraft(emailMap[item.domain] || item.originalData?.email || '');
-  };
-
-  const handleSaveEmail = (domain) => {
-    onSaveEmail(domain, emailDraft.trim());
-    setEditingEmailId(null);
-  };
-
-  const handleStartEditNote = (item) => {
-    setEditingNoteId(item.id);
-    setNoteDraft(shortlistNotes[item.id] || '');
-  };
-
-  const handleSaveNote = (id) => {
-    onUpdateNotes(id, noteDraft.trim());
-    setEditingNoteId(null);
-  };
-
-  // Helper for score badge
-  const getScoreBadge = (score) => {
-    if (score === undefined || score === null) return { label: 'N/A', cls: 'score-none' };
-    if (score < 50) return { label: score, cls: 'score-critical' };
-    if (score < 80) return { label: score, cls: 'score-poor' };
-    if (score < 90) return { label: score, cls: 'score-moderate' };
-    return { label: score, cls: 'score-good' };
-  };
-
-  // Helper for DR badge
-  const getDrBadge = (dr) => {
-    if (dr === undefined || dr === null) return { text: '—', cls: 'badge-muted' };
-    const num = Number(dr);
-    if (num >= 70) return { text: `DR ${num}`, cls: 'badge-emerald' };
-    if (num >= 40) return { text: `DR ${num}`, cls: 'badge-indigo' };
-    if (num >= 20) return { text: `DR ${num}`, cls: 'badge-amber' };
-    return { text: `DR ${num}`, cls: 'badge-rose' };
   };
 
   return (
@@ -251,7 +274,7 @@ export default function ShortlistView({
               </span>
             </div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              High-priority opportunities saved from your audits. Contact them one-by-one, generate tailored video pitches, and track your outreach status.
+              High-priority opportunities saved from your audits with 100% metrics parity. Contact them one-by-one, generate tailored video pitches, and track your outreach status.
             </p>
           </div>
 
@@ -365,7 +388,7 @@ export default function ShortlistView({
               type="text"
               className="search-input"
               style={{ padding: '0.45rem 0.75rem 0.45rem 2rem', fontSize: '0.8rem', width: '100%' }}
-              placeholder="Search shortlisted..."
+              placeholder="Search domain, company, notes..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -393,7 +416,7 @@ export default function ShortlistView({
             No Shortlisted Leads Yet
           </h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '520px', lineHeight: '1.45' }}>
-            When performing speed audits in the <strong>Audit Engine</strong> or searching with the <strong>SERP Lead Finder</strong>, click the <strong>⭐ Star</strong> icon on any high-opportunity website (or select multiple and click <strong>Shortlist Selected</strong>) to save them here for direct outreach.
+            When performing speed audits in the <strong>Audit Engine</strong>, click the <strong>⭐ Star</strong> icon on any website (or select multiple and click <strong>⭐ Shortlist Selected</strong>) to save them here for direct outreach.
           </p>
           <button
             type="button"
@@ -419,283 +442,606 @@ export default function ShortlistView({
         </div>
       ) : (
         <div className="table-wrapper glass-panel" style={{ overflowX: 'auto' }}>
-          <table className="data-table" style={{ minWidth: '1380px' }}>
+          <table className="data-table" style={{ minWidth: '1580px' }}>
             <thead>
               <tr>
-                <th style={{ width: '45px', textAlign: 'center' }}>#</th>
-                <th style={{ minWidth: '220px' }}>Website / Company</th>
-                <th style={{ width: '120px', textAlign: 'center' }}>Speed Score</th>
-                <th style={{ width: '100px', textAlign: 'center' }}>Ahrefs DR</th>
-                <th style={{ minWidth: '210px' }}>Contact Email</th>
-                <th style={{ width: '190px' }}>Outreach Status</th>
-                <th style={{ minWidth: '260px' }}>Notes / Outreach Log</th>
-                <th style={{ width: '170px', textAlign: 'center' }}>Actions</th>
+                <th style={{ width: '38px', textAlign: 'center' }}>#</th>
+                <th style={{ width: '35px', textAlign: 'center' }}>⭐</th>
+                <th style={{ width: '28px' }}></th>
+                <th style={{ minWidth: '200px' }}>Website / Company</th>
+                <th style={{ width: '90px', textAlign: 'center' }}>Ahrefs DR</th>
+                <th style={{ minWidth: '185px' }}>Contact Email</th>
+                <th style={{ width: '120px' }}>Category</th>
+                <th style={{ textAlign: 'center', width: '115px' }}>Speed Scores</th>
+                <th style={{ width: '145px' }}>Core Web Vitals</th>
+                <th style={{ minWidth: '180px' }}>Top Bottleneck</th>
+                <th style={{ textAlign: 'center', width: '85px' }}>Priority</th>
+                <th style={{ width: '175px' }}>Outreach Status</th>
+                <th style={{ minWidth: '200px' }}>Notes / Outreach Log</th>
+                <th style={{ textAlign: 'right', width: '145px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredList.map((item, index) => {
+                const isExpanded = expandedRows.has(item.id);
                 const currentStatus = shortlistOutreachStatus[item.id] || 'not_contacted';
                 const statusObj = OUTREACH_STATUSES.find(s => s.id === currentStatus) || OUTREACH_STATUSES[0];
-                const scoreInfo = getScoreBadge(item.mobile?.score);
-                const drValue = drMap[item.domain];
-                const drBadge = getDrBadge(drValue);
-                const currentEmail = emailMap[item.domain] || item.originalData?.email || '';
+
+                // Resolve Category
+                const currentCatId = categoryMap?.[item.id] || autoDetectCategory(item);
+                const currentCat = CATEGORY_DEFINITIONS.find(c => c.id === currentCatId) || CATEGORY_DEFINITIONS[4];
+
+                // Resolve Ahrefs DR
+                const drValue = drMap?.[item.id] ?? drMap?.[item.domain] ?? null;
+                const drStatus = drStatusMap?.[item.id] || drStatusMap?.[item.domain] || (drValue !== null ? 'done' : 'idle');
+                const drStyles = getDrBadgeStyles(drValue);
+
+                // Resolve Email & Status
+                const effectiveEmail = emailMap?.[item.id] ?? emailMap?.[item.domain] ?? (item.originalData?.email || '');
+                const currentEmailStatus = emailStatusMap?.[item.id] || (effectiveEmail ? 'found' : 'not_scanned');
+                const isEditingThisEmail = editingEmailId === item.id;
+                const isEmailCopied = copiedEmailId === item.id;
+                const isCopied = copiedId === item.id;
+
+                const orig = item.originalData || {};
+                const mScore = item.mobile?.score ?? item.score ?? 0;
+                const dScore = item.desktop?.score ?? item.desktopScore ?? null;
+
+                const mScoreClass = mScore < 50 ? 'critical' : mScore < 90 ? 'warning' : 'good';
+                const dScoreClass = dScore !== null ? (dScore < 50 ? 'critical' : dScore < 90 ? 'warning' : 'good') : '';
                 const currentNotes = shortlistNotes[item.id] || '';
 
                 return (
-                  <tr key={item.id} style={{ transition: 'background-color 0.15s ease' }}>
-                    {/* Sequence # */}
-                    <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                      {index + 1}
-                    </td>
+                  <React.Fragment key={item.id}>
+                    <tr className={mScore < 50 ? 'row-critical' : ''}>
+                      {/* Sequence # */}
+                      <td style={{ textAlign: 'center', fontWeight: 700, color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                        {index + 1}
+                      </td>
 
-                    {/* Website / Company */}
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
-                            {item.originalData?.company || item.domain}
-                          </span>
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{ color: 'var(--text-muted)', transition: 'color 0.15s ease' }}
-                            title={`Visit ${item.url}`}
-                          >
-                            <ExternalLink size={12} />
-                          </a>
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                          {item.domain}
-                        </span>
-                        {item.originalData?.city && (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)' }}>
-                            📍 {item.originalData.city}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Mobile Speed Score */}
-                    <td style={{ textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem' }}>
-                        <span className={`score-badge ${scoreInfo.cls}`} style={{ fontSize: '0.85rem', padding: '0.25rem 0.6rem' }}>
-                          {scoreInfo.label}
-                        </span>
-                        <span style={{ fontSize: '0.675rem', color: 'var(--text-muted)' }}>Mobile</span>
-                      </div>
-                    </td>
-
-                    {/* Ahrefs DR */}
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={`badge ${drBadge.cls}`} style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.55rem' }}>
-                        {drBadge.text}
-                      </span>
-                    </td>
-
-                    {/* Contact Email */}
-                    <td>
-                      {editingEmailId === item.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <input
-                            type="email"
-                            className="search-input"
-                            style={{ padding: '0.25rem 0.5rem', fontSize: '0.775rem', width: '100%' }}
-                            value={emailDraft}
-                            onChange={e => setEmailDraft(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSaveEmail(item.domain)}
-                            autoFocus
-                            placeholder="name@company.com"
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            style={{ padding: '0.25rem 0.45rem', fontSize: '0.7rem' }}
-                            onClick={() => handleSaveEmail(item.domain)}
-                            title="Save Email"
-                          >
-                            <Check size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '0.25rem 0.45rem', fontSize: '0.7rem' }}
-                            onClick={() => setEditingEmailId(null)}
-                            title="Cancel"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : currentEmail ? (
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.35rem' }}>
-                          <span style={{
-                            fontSize: '0.775rem',
-                            color: 'var(--text-primary)',
-                            fontFamily: 'var(--font-mono)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '140px'
-                          }} title={currentEmail}>
-                            {currentEmail}
-                          </span>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '0.2rem 0.35rem', fontSize: '0.65rem' }}
-                              onClick={() => handleCopyEmail(currentEmail, item.id)}
-                              title="Copy Email"
-                            >
-                              {copiedEmailId === item.id ? <Check size={11} color="#059669" /> : <Mail size={11} />}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '0.2rem 0.35rem', fontSize: '0.65rem' }}
-                              onClick={() => handleStartEditEmail(item)}
-                              title="Edit Email"
-                            >
-                              <Edit2 size={11} />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
+                      {/* Star Shortlist Toggle */}
+                      <td style={{ textAlign: 'center' }}>
                         <button
                           type="button"
-                          className="btn btn-secondary"
-                          style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', opacity: 0.75 }}
-                          onClick={() => handleStartEditEmail(item)}
-                        >
-                          + Add Email
-                        </button>
-                      )}
-                    </td>
-
-                    {/* Outreach Status Selector */}
-                    <td>
-                      <select
-                        value={currentStatus}
-                        onChange={e => onUpdateStatus(item.id, e.target.value)}
-                        style={{
-                          background: statusObj.bg,
-                          color: statusObj.color,
-                          border: `1px solid ${statusObj.border}`,
-                          fontWeight: 700,
-                          fontSize: '0.775rem',
-                          padding: '0.35rem 0.55rem',
-                          borderRadius: 'var(--radius-sm)',
-                          outline: 'none',
-                          cursor: 'pointer',
-                          width: '100%'
-                        }}
-                      >
-                        {OUTREACH_STATUSES.map(st => (
-                          <option key={st.id} value={st.id} style={{ background: 'var(--bg-card)', color: 'var(--text-primary)' }}>
-                            {st.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    {/* Notes / Outreach Log */}
-                    <td>
-                      {editingNoteId === item.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <input
-                            type="text"
-                            className="search-input"
-                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.775rem', width: '100%' }}
-                            value={noteDraft}
-                            onChange={e => setNoteDraft(e.target.value)}
-                            onKeyDown={e => e.key === 'Enter' && handleSaveNote(item.id)}
-                            placeholder="e.g. Sent 90s video audit, follow up Friday..."
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            style={{ padding: '0.3rem 0.45rem' }}
-                            onClick={() => handleSaveNote(item.id)}
-                          >
-                            <Check size={12} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '0.3rem 0.45rem' }}
-                            onClick={() => setEditingNoteId(null)}
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => handleStartEditNote(item)}
-                          style={{
-                            cursor: 'pointer',
-                            fontSize: '0.75rem',
-                            color: currentNotes ? 'var(--text-secondary)' : 'var(--text-muted)',
-                            padding: '0.3rem 0.5rem',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px dashed var(--border-subtle)',
-                            background: currentNotes ? 'rgba(0,0,0,0.02)' : 'transparent',
-                            minHeight: '28px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            gap: '0.35rem'
-                          }}
-                          title="Click to edit outreach notes"
-                        >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-                            {currentNotes || '+ Add note (e.g. Sent video audit)'}
-                          </span>
-                          <Edit2 size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
-                        {/* Open Pitch Drawer */}
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          style={{ fontSize: '0.725rem', padding: '0.3rem 0.6rem' }}
-                          onClick={() => onOpenPitch(item)}
-                          title="Open Pitch Generator"
-                        >
-                          <Sparkles size={12} />
-                          <span>Pitch</span>
-                        </button>
-
-                        {/* Mailto link */}
-                        {currentEmail && (
-                          <a
-                            href={`mailto:${currentEmail}?subject=${encodeURIComponent(`Quick question regarding ${item.originalData?.company || item.domain} website speed`)}`}
-                            className="btn btn-secondary"
-                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.5rem', textDecoration: 'none' }}
-                            title="Compose Email in Default Client"
-                          >
-                            <Send size={12} />
-                          </a>
-                        )}
-
-                        {/* Unstar / Remove */}
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: '0.3rem 0.45rem', color: '#f59e0b' }}
                           onClick={() => onRemoveFromShortlist(item.id)}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#f59e0b', transition: 'transform 0.15s ease' }}
                           title="Remove from Shortlist"
                         >
-                          <Star size={13} fill="#f59e0b" />
+                          <Star size={16} fill="#f59e0b" />
                         </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+
+                      {/* Expand toggle */}
+                      <td>
+                        <button
+                          type="button"
+                          onClick={() => toggleRow(item.id)}
+                          style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                          title="Toggle detailed Mobile & Desktop diagnostics"
+                        >
+                          {isExpanded ? <ChevronDown size={17} color="var(--accent-primary)" /> : <ChevronRight size={17} />}
+                        </button>
+                      </td>
+
+                      {/* Domain & Company info */}
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '0.925rem' }}>
+                              {orig.company || item.domain}
+                            </span>
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{ color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center' }}
+                              title="Open live website"
+                            >
+                              <ExternalLink size={12} />
+                            </a>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
+                              {item.domain}
+                            </span>
+                            {orig.city && (
+                              <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
+                                • {orig.city}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* AHREFS DOMAIN RATING (DR) COLUMN */}
+                      <td style={{ textAlign: 'center' }}>
+                        {drStatus === 'fetching' ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', fontSize: '0.7rem', color: 'var(--accent-primary)' }}>
+                            <Loader2 size={11} className="spin-icon" />
+                            <span>DR...</span>
+                          </div>
+                        ) : drValue !== null ? (
+                          <span
+                            style={{
+                              display: 'inline-block',
+                              padding: '0.25rem 0.55rem',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              color: drStyles.color,
+                              background: drStyles.bg,
+                              border: `1px solid ${drStyles.border}`
+                            }}
+                            title={`Ahrefs Domain Rating: ${drValue}/100`}
+                          >
+                            {drStyles.label}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.675rem', padding: '0.2rem 0.45rem', color: 'var(--accent-primary)' }}
+                            onClick={() => onFetchSingleDr && onFetchSingleDr(item)}
+                            title="Fetch Domain Rating from Ahrefs"
+                          >
+                            <TrendingUp size={11} />
+                            <span>Get DR</span>
+                          </button>
+                        )}
+                      </td>
+
+                      {/* EMAIL COLUMN */}
+                      <td>
+                        {isEditingThisEmail ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <input
+                                type="email"
+                                placeholder="e.g. info@domain.com"
+                                value={tempEmailInput}
+                                onChange={e => setTempEmailInput(e.target.value)}
+                                onKeyDown={e => { if (e.key === 'Enter') handleSaveEmail(item.id); }}
+                                style={{
+                                  background: 'var(--bg-input)',
+                                  border: '1px solid var(--accent-primary)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  padding: '0.25rem 0.45rem',
+                                  fontSize: '0.75rem',
+                                  color: 'var(--text-primary)',
+                                  width: '100%',
+                                  outline: 'none'
+                                }}
+                                autoFocus
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-primary"
+                                style={{ padding: '0.25rem 0.45rem', fontSize: '0.7rem' }}
+                                onClick={() => handleSaveEmail(item.id)}
+                                title="Save Email"
+                              >
+                                <Check size={12} />
+                              </button>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                style={{ fontSize: '0.675rem', padding: '0.2rem 0.45rem' }}
+                                onClick={() => setEditingEmailId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : effectiveEmail ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <a
+                              href={`mailto:${effectiveEmail}`}
+                              className="badge badge-cyan"
+                              style={{
+                                fontSize: '0.725rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                textDecoration: 'none',
+                                maxWidth: '150px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                              title={`Send email to ${effectiveEmail}`}
+                            >
+                              <Mail size={11} />
+                              <span>{effectiveEmail}</span>
+                            </a>
+
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                              <button
+                                type="button"
+                                onClick={() => copyEmail(effectiveEmail, item.id)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
+                                title="Copy email"
+                              >
+                                {isEmailCopied ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditEmail(item.id, effectiveEmail)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px' }}
+                                title="Edit email address"
+                              >
+                                <Edit2 size={11} />
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <span
+                              style={{
+                                fontSize: '0.7rem',
+                                color: 'var(--text-muted)',
+                                background: 'var(--bg-primary)',
+                                border: '1px solid var(--border-subtle)',
+                                padding: '0.15rem 0.4rem',
+                                borderRadius: 'var(--radius-sm)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.2rem'
+                              }}
+                            >
+                              <AlertCircle size={10} color="#94a3b8" /> No Email
+                            </span>
+
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ fontSize: '0.675rem', padding: '0.15rem 0.4rem', color: 'var(--accent-primary)' }}
+                              onClick={() => handleStartEditEmail(item.id, '')}
+                              title="Manually enter contact email"
+                            >
+                              <Plus size={10} /> Add
+                            </button>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Category Dropdown */}
+                      <td>
+                        <select
+                          value={currentCatId}
+                          onChange={e => onChangeCategory && onChangeCategory(item.id, e.target.value)}
+                          style={{
+                            background: currentCat.bg,
+                            color: currentCat.color,
+                            border: `1px solid ${currentCat.color}40`,
+                            borderRadius: 'var(--radius-sm)',
+                            padding: '0.25rem 0.45rem',
+                            fontSize: '0.725rem',
+                            fontWeight: 600,
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                          title="Change business category"
+                        >
+                          {CATEGORY_DEFINITIONS.map(cat => (
+                            <option key={cat.id} value={cat.id} style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
+                              {cat.badge}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Mobile & Desktop Scores */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.45rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title="Google PSI Mobile Performance">
+                            <div className={`score-badge ${mScoreClass}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>
+                              {mScore}
+                            </div>
+                            <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px' }}>
+                              <Smartphone size={9} /> Mobile
+                            </span>
+                          </div>
+
+                          {dScore !== null && (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title="Google PSI Desktop Performance">
+                              <div className={`score-badge ${dScoreClass}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>
+                                {dScore}
+                              </div>
+                              <span style={{ fontSize: '0.625rem', color: 'var(--text-muted)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '2px' }}>
+                                <Monitor size={9} /> Desktop
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Core Web Vitals */}
+                      <td>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(60px, 1fr))', gap: '0.3rem 0.55rem' }}>
+                          <div className="cwv-chip">
+                            <span className="cwv-label">LCP</span>
+                            <span className={`cwv-val ${item.metrics?.lcp?.status}`}>
+                              {item.metrics?.lcp?.display || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="cwv-chip">
+                            <span className="cwv-label">TBT</span>
+                            <span className={`cwv-val ${item.metrics?.tbt?.status}`}>
+                              {item.metrics?.tbt?.display || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="cwv-chip">
+                            <span className="cwv-label">FCP</span>
+                            <span className={`cwv-val ${item.metrics?.fcp?.status}`}>
+                              {item.metrics?.fcp?.display || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="cwv-chip">
+                            <span className="cwv-label">CLS</span>
+                            <span className={`cwv-val ${item.metrics?.cls?.status}`}>
+                              {item.metrics?.cls?.display || 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Top Bottleneck */}
+                      <td>
+                        <div style={{ maxWidth: '180px' }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.8rem', lineHeight: '1.3' }}>
+                            {item.topBottleneck}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Priority Tag */}
+                      <td style={{ textAlign: 'center' }}>
+                        {mScore < 50 ? (
+                          <span className="priority-pill hot">
+                            <Flame size={11} fill="var(--status-critical)" />
+                            <span>High</span>
+                          </span>
+                        ) : mScore < 90 ? (
+                          <span className="priority-pill warm">
+                            <Zap size={11} />
+                            <span>Warm</span>
+                          </span>
+                        ) : (
+                          <span className="priority-pill pass">
+                            <CheckCircle2 size={11} />
+                            <span>Pass</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Outreach Status Dropdown */}
+                      <td>
+                        <select
+                          value={currentStatus}
+                          onChange={e => onUpdateStatus(item.id, e.target.value)}
+                          style={{
+                            background: statusObj.bg,
+                            color: statusObj.color,
+                            border: `1px solid ${statusObj.border}`,
+                            fontWeight: 700,
+                            fontSize: '0.75rem',
+                            padding: '0.35rem 0.5rem',
+                            borderRadius: 'var(--radius-sm)',
+                            outline: 'none',
+                            cursor: 'pointer',
+                            width: '100%'
+                          }}
+                        >
+                          {OUTREACH_STATUSES.map(st => (
+                            <option key={st.id} value={st.id} style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
+                              {st.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Notes / Outreach Log */}
+                      <td>
+                        {editingNoteId === item.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <input
+                              type="text"
+                              className="search-input"
+                              style={{ padding: '0.25rem 0.45rem', fontSize: '0.75rem', width: '100%' }}
+                              value={noteDraft}
+                              onChange={e => setNoteDraft(e.target.value)}
+                              onKeyDown={e => e.key === 'Enter' && handleSaveNote(item.id)}
+                              placeholder="e.g. Sent 90s video audit, follow up Friday..."
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ padding: '0.25rem 0.4rem' }}
+                              onClick={() => handleSaveNote(item.id)}
+                            >
+                              <Check size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '0.25rem 0.4rem' }}
+                              onClick={() => setEditingNoteId(null)}
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => handleStartEditNote(item)}
+                            style={{
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              color: currentNotes ? 'var(--text-secondary)' : 'var(--text-muted)',
+                              padding: '0.3rem 0.45rem',
+                              borderRadius: 'var(--radius-sm)',
+                              border: '1px dashed var(--border-subtle)',
+                              background: currentNotes ? 'rgba(0,0,0,0.02)' : 'transparent',
+                              minHeight: '26px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '0.35rem'
+                            }}
+                            title="Click to edit outreach notes"
+                          >
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '170px' }}>
+                              {currentNotes || '+ Add note'}
+                            </span>
+                            <Edit2 size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
+                          {/* Pitch Lead */}
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.55rem' }}
+                            onClick={() => onOpenPitch({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue })}
+                            title="Open Pitch Generator"
+                          >
+                            <Mail size={12} />
+                            <span>Pitch</span>
+                          </button>
+
+                          {/* Copy Snippet */}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem' }}
+                            onClick={() => copySnippet(item)}
+                            title="Copy dynamic Mailmeteor hook snippet"
+                          >
+                            {isCopied ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
+                          </button>
+
+                          {/* Remove from Shortlist */}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem', color: '#f59e0b' }}
+                            onClick={() => onRemoveFromShortlist(item.id)}
+                            title="Unstar / Remove from Shortlist"
+                          >
+                            <Star size={12} fill="#f59e0b" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Expanded Row Diagnostics (100% parity with Audit table) */}
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={14} style={{ background: 'var(--bg-primary)', padding: '1.25rem 1.5rem 1.5rem 2.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            {/* Header Link */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span>Official Analysis — {item.domain}</span>
+                                <span className="badge badge-indigo">📱 Mobile: {mScore}/100</span>
+                                {dScore !== null && <span className="badge badge-cyan">💻 Desktop: {dScore}/100</span>}
+                                {drValue !== null && <span className="badge" style={{ background: drStyles.bg, color: drStyles.color, border: `1px solid ${drStyles.border}` }}>📈 Ahrefs DR: {drValue}/100</span>}
+                                <span className="badge" style={{ background: currentCat.bg, color: currentCat.color }}>{currentCat.badge}</span>
+                                {effectiveEmail && <span className="badge badge-cyan"><Mail size={11} style={{ marginRight: '3px' }} /> {effectiveEmail}</span>}
+                              </h4>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <a
+                                  href={`https://pagespeed.web.dev/analysis?url=${encodeURIComponent(item.url)}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: 'var(--accent-primary)', fontSize: '0.775rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', textDecoration: 'underline' }}
+                                >
+                                  Open in Google PageSpeed Insights <ExternalLink size={12} />
+                                </a>
+                              </div>
+                            </div>
+
+                            {/* Dual Device CWV Grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+                              {/* Mobile Box */}
+                              <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                    <Smartphone size={14} color="var(--accent-primary)" /> Mobile Core Web Vitals
+                                  </strong>
+                                  <span className={`badge ${mScore < 50 ? 'badge-critical' : 'badge-indigo'}`}>
+                                    Score: {mScore}/100
+                                  </span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.775rem' }}>
+                                  <div>FCP: <strong className={item.metrics?.fcp?.status}>{item.metrics?.fcp?.display}</strong></div>
+                                  <div>LCP: <strong className={item.metrics?.lcp?.status}>{item.metrics?.lcp?.display}</strong></div>
+                                  <div>TBT: <strong className={item.metrics?.tbt?.status}>{item.metrics?.tbt?.display}</strong></div>
+                                  <div>CLS: <strong className={item.metrics?.cls?.status}>{item.metrics?.cls?.display}</strong></div>
+                                  <div>Speed Index: <strong>{item.metrics?.speedIndex?.display}</strong></div>
+                                </div>
+                              </div>
+
+                              {/* Desktop Box */}
+                              {item.desktop && (
+                                <div style={{ background: 'var(--bg-card)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.65rem' }}>
+                                    <strong style={{ fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                      <Monitor size={14} color="var(--accent-cyan)" /> Desktop Core Web Vitals
+                                    </strong>
+                                    <span className={`badge ${dScore < 50 ? 'badge-critical' : 'badge-cyan'}`}>
+                                      Score: {dScore}/100
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.775rem' }}>
+                                    <div>FCP: <strong className={item.desktopMetrics?.fcp?.status}>{item.desktopMetrics?.fcp?.display}</strong></div>
+                                    <div>LCP: <strong className={item.desktopMetrics?.lcp?.status}>{item.desktopMetrics?.lcp?.display}</strong></div>
+                                    <div>TBT: <strong className={item.desktopMetrics?.tbt?.status}>{item.desktopMetrics?.tbt?.display}</strong></div>
+                                    <div>CLS: <strong className={item.desktopMetrics?.cls?.status}>{item.desktopMetrics?.cls?.display}</strong></div>
+                                    <div>Speed Index: <strong>{item.desktopMetrics?.speedIndex?.display}</strong></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Opportunities Table */}
+                            {item.opportunities && item.opportunities.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <strong style={{ fontSize: '0.825rem', color: 'var(--text-secondary)' }}>Top Speed Opportunities & Potential Savings:</strong>
+                                <div style={{ background: 'var(--bg-card)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', overflow: 'hidden' }}>
+                                  <table style={{ width: '100%', fontSize: '0.775rem', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                      <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                                        <th style={{ padding: '0.45rem 0.75rem' }}>Opportunity</th>
+                                        <th style={{ padding: '0.45rem 0.75rem' }}>Est. Savings</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {item.opportunities.slice(0, 5).map((opp, oIdx) => (
+                                        <tr key={oIdx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                          <td style={{ padding: '0.45rem 0.75rem', color: 'var(--text-primary)', fontWeight: 500 }}>{opp.title}</td>
+                                          <td style={{ padding: '0.45rem 0.75rem', color: 'var(--status-critical)', fontWeight: 600 }}>{opp.displayValue || `${opp.savings} ms`}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
