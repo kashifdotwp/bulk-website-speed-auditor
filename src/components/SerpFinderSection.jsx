@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Globe, Sparkles, Filter, Play, CheckSquare, Square, Copy, Check, ArrowRight, ExternalLink, Loader2, AlertCircle, Zap } from 'lucide-react';
 import { searchSerpLeads, POPULAR_QUERY_TEMPLATES, QUERY_CATEGORIES } from '../services/serpFinder';
 
 export default function SerpFinderSection({
   onStartAuditFromSerp,
-  isRunning
+  isRunning,
+  initialQuery = '',
+  initialRegion = 'global'
 }) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery || '');
   const [limit, setLimit] = useState(20);
   const [excludeDirectories, setExcludeDirectories] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -15,8 +17,18 @@ export default function SerpFinderSection({
   const [copiedDomains, setCopiedDomains] = useState(false);
   const [searchDone, setSearchDone] = useState(false);
   const [presetFilter, setPresetFilter] = useState('all');
-  const [region, setRegion] = useState('global');
+  const [region, setRegion] = useState(initialRegion || 'global');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Sync initial query/region when changed from external tabs (Niches or Geo)
+  useEffect(() => {
+    if (initialQuery) {
+      setQuery(initialQuery);
+    }
+    if (initialRegion) {
+      setRegion(initialRegion);
+    }
+  }, [initialQuery, initialRegion]);
 
   const handleSearch = async (targetQuery = query) => {
     if (!targetQuery || targetQuery.trim().length === 0) return;

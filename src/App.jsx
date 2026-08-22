@@ -13,6 +13,8 @@ import SerpFinderSection from './components/SerpFinderSection';
 import AnalyticsView from './components/AnalyticsView';
 import ProjectDataModal from './components/ProjectDataModal';
 import ShortlistView from './components/ShortlistView';
+import NichesView from './components/NichesView';
+import GeographyView from './components/GeographyView';
 
 import { AuditQueueEngine } from './services/queueEngine';
 import { autoDetectCategory } from './services/categories';
@@ -91,6 +93,22 @@ export default function App() {
   const [drMap, setDrMap] = useState(() => loadDrMap());
   const [drStatusMap, setDrStatusMap] = useState({});
   const [isFetchingAllDr, setIsFetchingAllDr] = useState(false);
+
+  // SERP Prefill State from Niches or Geography tabs
+  const [serpPrefillQuery, setSerpPrefillQuery] = useState('');
+  const [serpPrefillRegion, setSerpPrefillRegion] = useState('global');
+
+  const handleSelectNicheForSerp = (nicheQuery) => {
+    setSerpPrefillQuery(nicheQuery);
+    setActiveView('serp');
+  };
+
+  const handleSelectLocationForSerp = (locationQuery, countryCode) => {
+    setSerpPrefillQuery(locationQuery);
+    const regionMap = { US: 'us', GB: 'uk', CA: 'ca', AU: 'au' };
+    setSerpPrefillRegion(regionMap[countryCode] || 'global');
+    setActiveView('serp');
+  };
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [queueProgress, setQueueProgress] = useState(null);
 
@@ -649,6 +667,8 @@ export default function App() {
         <SerpFinderSection
           onStartAuditFromSerp={handleStartAuditFromSerp}
           isRunning={isRunning}
+          initialQuery={serpPrefillQuery}
+          initialRegion={serpPrefillRegion}
         />
       )}
 
@@ -677,7 +697,17 @@ export default function App() {
         />
       )}
 
-      {/* VIEW 3: Analytics & Velocity */}
+      {/* VIEW 3: Niches Directory */}
+      {activeView === 'niches' && (
+        <NichesView onSelectNicheForSerp={handleSelectNicheForSerp} />
+      )}
+
+      {/* VIEW 4: Tier-1 Geography Directory */}
+      {activeView === 'geography' && (
+        <GeographyView onSelectLocationForSerp={handleSelectLocationForSerp} />
+      )}
+
+      {/* VIEW 5: Analytics & Velocity */}
       {activeView === 'analytics' && (
         <AnalyticsView results={results} />
       )}

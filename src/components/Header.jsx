@@ -12,7 +12,9 @@ import {
   Sun,
   Moon,
   TrendingUp,
-  Star
+  Star,
+  Target,
+  Globe
 } from 'lucide-react';
 
 export default function Header({
@@ -94,6 +96,22 @@ export default function Header({
               {shortlistedCount}
             </span>
           )}
+        </button>
+
+        <button
+          type="button"
+          className={`strategy-btn ${activeView === 'niches' ? 'active' : ''}`}
+          onClick={() => onViewChange('niches')}
+        >
+          <Target size={14} /> Niches
+        </button>
+
+        <button
+          type="button"
+          className={`strategy-btn ${activeView === 'geography' ? 'active' : ''}`}
+          onClick={() => onViewChange('geography')}
+        >
+          <Globe size={14} /> Geography
         </button>
 
         <button
