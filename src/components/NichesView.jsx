@@ -6,7 +6,18 @@ export default function NichesView({ onSelectNicheForSerp }) {
   const [activeTab, setActiveTab] = useState('local'); // 'local' | 'ecom'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTier, setSelectedTier] = useState('all'); // 'all' | 'high' | 'medium' | 'low'
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [copiedId, setCopiedId] = useState(null);
+
+  // Extract unique categories for active tab
+  const categories = useMemo(() => {
+    const list = activeTab === 'local' ? LOCAL_BUSINESS_NICHES : ECOMMERCE_NICHES;
+    const set = new Set();
+    list.forEach(n => {
+      if (n.category) set.add(n.category);
+    });
+    return Array.from(set);
+  }, [activeTab]);
 
   // Filtered Niches List
   const filteredNiches = useMemo(() => {
@@ -14,6 +25,10 @@ export default function NichesView({ onSelectNicheForSerp }) {
     const q = searchQuery.toLowerCase().trim();
 
     return list.filter(niche => {
+      // Category match
+      if (selectedCategory !== 'all' && niche.category !== selectedCategory) {
+        return false;
+      }
       // Tier match
       if (selectedTier !== 'all' && niche.ticketTier !== selectedTier) {
         return false;
@@ -26,7 +41,7 @@ export default function NichesView({ onSelectNicheForSerp }) {
       const matchHook = niche.pitchHook?.toLowerCase().includes(q) || false;
       return matchName || matchCategory || matchKeywords || matchHook;
     });
-  }, [activeTab, searchQuery, selectedTier]);
+  }, [activeTab, searchQuery, selectedTier, selectedCategory]);
 
   const handleCopyKeywords = (niche) => {
     const text = niche.keywords.join(', ');
@@ -76,49 +91,43 @@ export default function NichesView({ onSelectNicheForSerp }) {
               🎯 Prospecting Niches Directory
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Comprehensive cold outreach targeting reference: 60+ Local Service Niches & 35+ High-Converting E-Commerce Verticals.
+              100 High-Value Local Service & E-Commerce targeting niches with Pay-Per-Call CPC benchmarks, deal values, and 1-click SERP discovery.
             </p>
           </div>
         </div>
 
-        {/* Global Stats Counter */}
+        {/* Global Summary Badge */}
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', padding: '0.5rem 0.85rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>LOCAL NICHES</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{LOCAL_BUSINESS_NICHES.length}</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>LOCAL SERVICE NICHES</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-primary)' }}>{LOCAL_BUSINESS_NICHES.length} Niches</div>
           </div>
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', padding: '0.5rem 0.85rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>E-COM NICHES</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0284c7' }}>{ECOMMERCE_NICHES.length}</div>
-          </div>
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', padding: '0.5rem 0.85rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>HIGH-TICKET VERTICALS</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#10b981' }}>
-              {LOCAL_BUSINESS_NICHES.filter(n => n.ticketTier === 'high').length + ECOMMERCE_NICHES.filter(n => n.ticketTier === 'high').length}
-            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600 }}>E-COM VERTICALS</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#10b981' }}>{ECOMMERCE_NICHES.length} Verticals</div>
           </div>
         </div>
       </div>
 
-      {/* Main Switcher & Filter Controls */}
+      {/* Filter & Search Bar */}
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
         borderRadius: 'var(--radius-md)',
         padding: '1rem',
-        marginBottom: '1.25rem',
+        marginBottom: '1.5rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '0.85rem'
       }}>
-        {/* Tab Switcher: Local vs E-Com */}
-        <div style={{ display: 'flex', background: 'var(--bg-primary)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+        {/* Main Tab Switcher (Local vs E-Com) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button
             type="button"
-            className={`strategy-btn ${activeTab === 'local' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('local'); setSelectedTier('all'); }}
+            className={`btn ${activeTab === 'local' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('local'); setSelectedTier('all'); setSelectedCategory('all'); }}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem' }}
           >
             <Building2 size={15} />
@@ -126,13 +135,31 @@ export default function NichesView({ onSelectNicheForSerp }) {
           </button>
           <button
             type="button"
-            className={`strategy-btn ${activeTab === 'ecom' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('ecom'); setSelectedTier('all'); }}
+            className={`btn ${activeTab === 'ecom' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('ecom'); setSelectedTier('all'); setSelectedCategory('all'); }}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.45rem 0.9rem' }}
           >
             <ShoppingBag size={15} />
             <span>E-Commerce ({ECOMMERCE_NICHES.length})</span>
           </button>
+        </div>
+
+        {/* Category Dropdown Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+            📁 Category:
+          </span>
+          <select
+            className="filter-select"
+            style={{ fontSize: '0.775rem', padding: '0.35rem 0.65rem', minWidth: '170px' }}
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value)}
+          >
+            <option value="all">All Categories ({categories.length})</option>
+            {categories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
 
         {/* Tier Filter Pills */}
@@ -154,7 +181,7 @@ export default function NichesView({ onSelectNicheForSerp }) {
             style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
             onClick={() => setSelectedTier('high')}
           >
-            🔥 High-Ticket / High AOV
+            🔥 High-Ticket
           </button>
           <button
             type="button"
@@ -162,7 +189,7 @@ export default function NichesView({ onSelectNicheForSerp }) {
             style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
             onClick={() => setSelectedTier('medium')}
           >
-            ⚡ Mid-Ticket / Mid AOV
+            ⚡ Mid-Ticket
           </button>
           <button
             type="button"
@@ -170,18 +197,18 @@ export default function NichesView({ onSelectNicheForSerp }) {
             style={{ fontSize: '0.75rem', padding: '0.3rem 0.65rem' }}
             onClick={() => setSelectedTier('low')}
           >
-            🧹 Volume / Low-Ticket
+            🧹 Low-Ticket
           </button>
         </div>
 
         {/* Search Box */}
-        <div style={{ position: 'relative', minWidth: '260px' }}>
+        <div style={{ position: 'relative', minWidth: '240px' }}>
           <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             className="search-input"
             style={{ width: '100%', paddingLeft: '2.1rem', fontSize: '0.825rem' }}
-            placeholder={`Search ${activeTab === 'local' ? 'local niches' : 'e-commerce verticals'} or keywords...`}
+            placeholder={`Search ${activeTab === 'local' ? '100 niches' : 'e-com verticals'}...`}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />

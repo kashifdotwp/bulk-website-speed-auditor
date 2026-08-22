@@ -11,6 +11,17 @@ export default function GeographyView({ onSelectLocationForSerp }) {
 
   const countryData = TIER1_GEOGRAPHY[selectedCountry] || TIER1_GEOGRAPHY.us;
 
+  // Group niches by Category for structured dropdown
+  const nichesByCategory = useMemo(() => {
+    const map = {};
+    LOCAL_BUSINESS_NICHES.forEach(n => {
+      const cat = n.category || 'Other Services';
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(n);
+    });
+    return map;
+  }, []);
+
   // Filter states and cities based on search
   const filteredStates = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -98,43 +109,39 @@ export default function GeographyView({ onSelectLocationForSerp }) {
         marginBottom: '1.25rem'
       }}>
         {Object.entries(TIER1_GEOGRAPHY).map(([key, country]) => {
-          const isSelected = selectedCountry === key;
+          const isActive = selectedCountry === key;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => { setSelectedCountry(key); setSearchQuery(''); }}
+              onClick={() => setSelectedCountry(key)}
               style={{
-                background: isSelected ? 'var(--bg-card)' : 'var(--bg-primary)',
-                border: `2px solid ${isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                background: isActive ? 'var(--bg-card)' : 'var(--bg-primary)',
+                border: isActive ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 padding: '0.85rem 1rem',
-                cursor: 'pointer',
                 textAlign: 'left',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                transition: 'all 0.15s ease',
-                boxShadow: isSelected ? '0 4px 12px rgba(79, 70, 229, 0.15)' : 'none'
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: isActive ? '0 4px 14px rgba(79, 70, 229, 0.12)' : 'none',
+                position: 'relative'
               }}
             >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginBottom: '0.2rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>{country.flag}</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 700, color: isSelected ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
-                    {country.countryName}
-                  </span>
-                </div>
-                <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)' }}>
-                  Pop: <strong>{country.totalPopulation}</strong> • {country.states.length} {key === 'uk' ? 'Regions' : 'States/Prov.'}
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                <span style={{ fontSize: '1.2rem' }}>{country.flag}</span>
+                <strong style={{ fontSize: '0.95rem', color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                  {country.countryName}
+                </strong>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Pop: <strong style={{ color: 'var(--text-secondary)' }}>{country.totalPopulation}</strong> • {country.states.length} {key === 'uk' ? 'Regions' : 'States/Prov.'}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Action Toolbar: Quick Niche Combo + Search Filter */}
+      {/* Target Niche Filter & City Search Bar */}
       <div style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border-subtle)',
@@ -154,14 +161,18 @@ export default function GeographyView({ onSelectLocationForSerp }) {
           </span>
           <select
             className="filter-select"
-            style={{ fontSize: '0.825rem', padding: '0.45rem 0.75rem', minWidth: '220px' }}
+            style={{ fontSize: '0.825rem', padding: '0.45rem 0.75rem', minWidth: '280px', maxWidth: '380px' }}
             value={selectedNicheQuery}
             onChange={e => setSelectedNicheQuery(e.target.value)}
           >
-            {LOCAL_BUSINESS_NICHES.slice(0, 30).map(n => (
-              <option key={n.id} value={n.keywords[0]}>
-                {n.name}
-              </option>
+            {Object.entries(nichesByCategory).map(([categoryName, nichesList]) => (
+              <optgroup key={categoryName} label={categoryName}>
+                {nichesList.map(n => (
+                  <option key={n.id} value={n.keywords[0]}>
+                    {n.name} ({n.ticketTier === 'high' ? '🔥 High-Ticket' : n.ticketTier === 'medium' ? '⚡ Mid-Ticket' : '🧹 Low-Ticket'})
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
