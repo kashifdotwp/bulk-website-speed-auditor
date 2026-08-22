@@ -118,11 +118,11 @@ export default function App() {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [activePitchLead, setActivePitchLead] = useState(null);
 
-  // Filters & Sorting
+  // Filters & Sorting (default to sequence: new audits always at end)
   const [filterTier, setFilterTier] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('score_asc');
+  const [sortBy, setSortBy] = useState('sequence');
 
   // Queue Engine Ref
   const queueEngineRef = useRef(null);
@@ -272,7 +272,8 @@ export default function App() {
             copy[existingIndex] = newItem;
             return copy;
           }
-          return [newItem, ...prev];
+          // Appends newly audited sites in sequence to the END of the list
+          return [...prev, newItem];
         });
 
         // 1. Auto Email Scan

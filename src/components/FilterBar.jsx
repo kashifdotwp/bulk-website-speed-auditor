@@ -113,6 +113,7 @@ export default function FilterBar({
                 cursor: 'pointer'
               }}
             >
+              <option value="sequence">Audit Sequence (New Sites at End ⬇️)</option>
               <option value="score_asc">Lowest Speed Score (Worst Leads 🔥)</option>
               <option value="score_desc">Highest Speed Score</option>
               <option value="dr_desc">📈 Ahrefs DR: Highest First (High Authority)</option>

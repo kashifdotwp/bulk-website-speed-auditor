@@ -139,9 +139,10 @@ export default function ResultsTable({
 
   return (
     <div className="table-wrapper">
-      <table className="data-table" style={{ minWidth: '1360px' }}>
+      <table className="data-table" style={{ minWidth: '1390px' }}>
         <thead>
           <tr>
+            <th style={{ width: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>#</th>
             <th style={{ width: '35px', textAlign: 'center' }}>
               <input
                 type="checkbox"
@@ -166,7 +167,7 @@ export default function ResultsTable({
           </tr>
         </thead>
         <tbody>
-          {results.map((item) => {
+          {results.map((item, index) => {
             const isExpanded = expandedRows.has(item.id);
             const isStarred = shortlistedIds?.has(item.id);
             const isSelected = selectedIds?.has(item.id);
@@ -200,6 +201,9 @@ export default function ResultsTable({
             if (!item.success) {
               return (
                 <tr key={item.id} style={{ background: 'var(--status-critical-bg)' }}>
+                  <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    #{index + 1}
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     <input
                       type="checkbox"
@@ -250,6 +254,11 @@ export default function ResultsTable({
             return (
               <React.Fragment key={item.id}>
                 <tr className={mScore < 50 ? 'row-critical' : ''}>
+                  {/* Sequence # */}
+                  <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    #{index + 1}
+                  </td>
+
                   {/* Select Checkbox */}
                   <td style={{ textAlign: 'center' }}>
                     <input
