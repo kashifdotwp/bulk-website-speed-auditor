@@ -317,27 +317,58 @@ export default function NichesView({ onSelectNicheForSerp }) {
               </div>
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '0.45rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.75rem', alignItems: 'center' }}>
                 <button
                   type="button"
                   className="btn btn-primary"
-                  style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.6rem', justifyContent: 'center' }}
+                  style={{ flex: 1, fontSize: '0.75rem', padding: '0.4rem 0.6rem', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
                   onClick={() => handleLaunchSerp(niche)}
+                  title={`Search '${niche.keywords[0]}' in App SERP Lead Finder`}
                 >
                   <Search size={12} />
-                  <span>Find in SERP</span>
-                  <ArrowRight size={12} />
+                  <span>SERP Leads</span>
+                  <ArrowRight size={11} />
                 </button>
 
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem' }}
+                  style={{
+                    padding: '0.4rem',
+                    fontSize: '0.75rem',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
+                  onClick={() => {
+                    const q = niche.keywords[0] || niche.name;
+                    window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, '_blank');
+                  }}
+                  title={`Open Google Search in New Tab for '${niche.keywords[0]}'`}
+                >
+                  <ExternalLink size={13} />
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{
+                    padding: '0.4rem',
+                    fontSize: '0.75rem',
+                    width: '32px',
+                    height: '32px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: 'var(--radius-sm)'
+                  }}
                   onClick={() => handleCopyKeywords(niche)}
                   title="Copy search query keywords to clipboard"
                 >
-                  {copiedId === niche.id ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
-                  <span>{copiedId === niche.id ? 'Copied' : 'Keywords'}</span>
+                  {copiedId === niche.id ? <Check size={13} color="var(--status-good)" /> : <Copy size={13} />}
                 </button>
               </div>
             </div>

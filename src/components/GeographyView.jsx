@@ -31,8 +31,8 @@ export default function GeographyView({ onSelectLocationForSerp }) {
     }
   };
 
-  const handleCopyLocation = (cityName, stateName) => {
-    const text = `${cityName}, ${stateName}`;
+  const handleCopyLocation = (cityName, stateCode) => {
+    const text = `${selectedNicheQuery} ${cityName} ${stateCode}`.trim();
     navigator.clipboard.writeText(text);
     setCopiedCity(text);
     setTimeout(() => setCopiedCity(null), 1800);
@@ -261,17 +261,75 @@ export default function GeographyView({ onSelectLocationForSerp }) {
                     </div>
                   </div>
 
-                  {/* 1-Click Launch Button */}
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    style={{ fontSize: '0.7rem', padding: '0.3rem 0.55rem', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
-                    onClick={() => handleLaunchSerpForCity(city.name, state.code)}
-                    title={`Search '${selectedNicheQuery} ${city.name} ${state.code}' in SERP Lead Finder`}
-                  >
-                    <span>Prospect</span>
-                    <ArrowRight size={11} />
-                  </button>
+                  {/* 3 Action Icon Buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {/* 1. Copy Search Query Button */}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '0.35rem',
+                        fontSize: '0.75rem',
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                      onClick={() => handleCopyLocation(city.name, state.code)}
+                      title={`Copy Search Query: "${selectedNicheQuery} ${city.name} ${state.code}"`}
+                    >
+                      {copiedCity === `${selectedNicheQuery} ${city.name} ${state.code}` ? (
+                        <Check size={13} color="var(--status-good)" />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                    </button>
+
+                    {/* 2. Open in Google Search New Tab */}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{
+                        padding: '0.35rem',
+                        fontSize: '0.75rem',
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                      onClick={() => {
+                        const q = `${selectedNicheQuery} ${city.name} ${state.code}`;
+                        window.open(`https://www.google.com/search?q=${encodeURIComponent(q)}`, '_blank');
+                      }}
+                      title={`Open Google Search in New Tab: "${selectedNicheQuery} ${city.name} ${state.code}"`}
+                    >
+                      <ExternalLink size={13} />
+                    </button>
+
+                    {/* 3. Prospect in App SERP Lead Finder */}
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{
+                        padding: '0.35rem',
+                        fontSize: '0.75rem',
+                        width: '28px',
+                        height: '28px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: 'var(--radius-sm)'
+                      }}
+                      onClick={() => handleLaunchSerpForCity(city.name, state.code)}
+                      title={`Prospect in SERP Lead Finder: "${selectedNicheQuery} ${city.name} ${state.code}"`}
+                    >
+                      <Search size={13} />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
