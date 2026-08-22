@@ -456,9 +456,9 @@ export default function ShortlistView({
                 <th style={{ width: '145px' }}>Core Web Vitals</th>
                 <th style={{ minWidth: '180px' }}>Top Bottleneck</th>
                 <th style={{ textAlign: 'center', width: '85px' }}>Priority</th>
+                <th style={{ textAlign: 'center', width: '145px' }}>Pitch & Actions</th>
                 <th style={{ width: '175px' }}>Outreach Status</th>
                 <th style={{ minWidth: '200px' }}>Notes / Outreach Log</th>
-                <th style={{ textAlign: 'right', width: '145px' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -819,6 +819,45 @@ export default function ShortlistView({
                         )}
                       </td>
 
+                      {/* Pitch & Actions */}
+                      <td style={{ textAlign: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
+                          {/* Pitch Lead */}
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.55rem' }}
+                            onClick={() => onOpenPitch({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue })}
+                            title="Open Pitch Generator"
+                          >
+                            <Mail size={12} />
+                            <span>Pitch</span>
+                          </button>
+
+                          {/* Copy Snippet */}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem' }}
+                            onClick={() => copySnippet(item)}
+                            title="Copy dynamic Mailmeteor hook snippet"
+                          >
+                            {isCopied ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
+                          </button>
+
+                          {/* Remove from Shortlist */}
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem', color: '#f59e0b' }}
+                            onClick={() => onRemoveFromShortlist(item.id)}
+                            title="Unstar / Remove from Shortlist"
+                          >
+                            <Star size={12} fill="#f59e0b" />
+                          </button>
+                        </div>
+                      </td>
+
                       {/* Outreach Status Dropdown */}
                       <td>
                         <select
@@ -901,45 +940,6 @@ export default function ShortlistView({
                             <Edit2 size={11} style={{ opacity: 0.5, flexShrink: 0 }} />
                           </div>
                         )}
-                      </td>
-
-                      {/* Actions */}
-                      <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
-                          {/* Pitch Lead */}
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.55rem' }}
-                            onClick={() => onOpenPitch({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue })}
-                            title="Open Pitch Generator"
-                          >
-                            <Mail size={12} />
-                            <span>Pitch</span>
-                          </button>
-
-                          {/* Copy Snippet */}
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem' }}
-                            onClick={() => copySnippet(item)}
-                            title="Copy dynamic Mailmeteor hook snippet"
-                          >
-                            {isCopied ? <Check size={12} color="var(--status-good)" /> : <Copy size={12} />}
-                          </button>
-
-                          {/* Remove from Shortlist */}
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ fontSize: '0.725rem', padding: '0.3rem 0.45rem', color: '#f59e0b' }}
-                            onClick={() => onRemoveFromShortlist(item.id)}
-                            title="Unstar / Remove from Shortlist"
-                          >
-                            <Star size={12} fill="#f59e0b" />
-                          </button>
-                        </div>
                       </td>
                     </tr>
 

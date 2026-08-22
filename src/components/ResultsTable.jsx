@@ -162,8 +162,8 @@ export default function ResultsTable({
             <th style={{ width: '145px' }}>Core Web Vitals</th>
             <th style={{ minWidth: '190px' }}>Top Bottleneck</th>
             <th style={{ textAlign: 'center', width: '85px' }}>Priority</th>
-            <th style={{ textAlign: 'center', width: '110px' }}>Status</th>
-            <th style={{ textAlign: 'right', width: '145px' }}>Actions</th>
+            <th style={{ textAlign: 'center', width: '145px' }}>Pitch & Actions</th>
+            <th style={{ textAlign: 'center', width: '115px' }}>Status</th>
           </tr>
         </thead>
         <tbody>
@@ -622,34 +622,9 @@ export default function ResultsTable({
                     )}
                   </td>
 
-                  {/* Status Dropdown */}
+                  {/* Pitch & Actions */}
                   <td style={{ textAlign: 'center' }}>
-                    <select
-                      value={currentStatusId}
-                      onChange={e => onChangeLeadStatus(item.id, e.target.value)}
-                      style={{
-                        background: currentStatus.bg,
-                        color: currentStatus.color,
-                        border: `1px solid ${currentStatus.color}40`,
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '0.2rem 0.4rem',
-                        fontSize: '0.7rem',
-                        fontWeight: 600,
-                        outline: 'none',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {LEAD_STATUS_OPTIONS.map(opt => (
-                        <option key={opt.id} value={opt.id} style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-
-                  {/* Actions */}
-                  <td style={{ textAlign: 'right' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.3rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem' }}>
                       {/* Pitch Lead */}
                       <button
                         type="button"
@@ -683,6 +658,31 @@ export default function ResultsTable({
                         <Trash2 size={12} />
                       </button>
                     </div>
+                  </td>
+
+                  {/* Status Dropdown */}
+                  <td style={{ textAlign: 'center' }}>
+                    <select
+                      value={currentStatusId}
+                      onChange={e => onChangeLeadStatus(item.id, e.target.value)}
+                      style={{
+                        background: currentStatus.bg,
+                        color: currentStatus.color,
+                        border: `1px solid ${currentStatus.color}40`,
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '0.2rem 0.4rem',
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        outline: 'none',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {LEAD_STATUS_OPTIONS.map(opt => (
+                        <option key={opt.id} value={opt.id} style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                 </tr>
 
