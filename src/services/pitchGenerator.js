@@ -84,34 +84,38 @@ export function generatePitch(item = {}, angleId = 'speed_cwv', leadData = {}) {
   switch (angleId) {
     case 'speed_cwv':
       return {
-        subject: `Quick note regarding ${domain}'s mobile load time`,
+        subject: `Quick note regarding ${domain}'s loading speed`,
         body: `Hi ${firstName},
 
-I was looking at ${domain} on my phone and noticed the homepage is taking about ${lcp} to fully display on mobile. Google's official PageSpeed diagnostic currently scores the site at ${score}/100.
+I was looking at ${domain} today and noticed a major loading delay on mobile that is likely handing your potential customers straight to your competitors.
 
-When mobile load times exceed 3 seconds, over half of visitors click back and head to a competitor instead. The primary culprit slowing down the page is ${bottleneck}.
+I ran a quick speed test—right now, the site is scoring ${score}/100 on mobile${desktopScore !== null ? ` and ${desktopScore}/100 on desktop` : ''}.
 
-I recorded a quick 90-second video walkthrough showing where the delay is coming from and how to get your mobile score into the 90+ green zone without changing your website's layout.
+When a site takes more than 3 seconds to open, most visitors assume it is broken and hit the back button before they even see your services.
 
-Mind if I send the video link over?
+If you are spending any money on marketing, SEO, or paid ads right now, a huge chunk of that budget is just bleeding out through abandoned clicks.
+
+I found the exact bottleneck that is slowing everything down (${bottleneck}). I recorded a quick 2-minute video showing where the issue is and how to fix it without redesigning your website.
+
+Mind if I send the link?
 
 Best,
 [Your Name]`,
-        snippet: `noticed ${domain}'s mobile speed score is currently ${score}/100 (LCP taking ${lcp}), largely due to ${bottleneck}`
+        snippet: `noticed a major loading delay on ${domain} (${score}/100 mobile speed) caused by ${bottleneck}`
       };
 
     case 'local_seo':
       return {
-        subject: `Google search visibility for ${company}${citySubject}`,
+        subject: `Quick question regarding ${company}'s Google visibility${citySubject}`,
         body: `Hi ${firstName},
 
-I was researching top-rated businesses in your space${citySnippet} and noticed ${company} is currently missing out on top rankings for high-intent local searches.
+I was researching top-rated businesses${citySnippet} and noticed ${company} is currently missing out on top rankings for high-intent local searches.
 
-Right now, a low Domain Rating (${drDisplay}) combined with a mobile speed score of ${score}/100 is signaling to Google to push nearby competitors ahead of ${domain} on both Google Maps and organic search results.
+Right now, a low Domain Rating (${drDisplay}) combined with a mobile speed score of ${score}/100 is signaling to Google to push nearby competitors ahead of ${domain} on both Google Maps and search results.
 
-Every week, dozens of local customers ready to book are landing on your competitors' pages instead because their sites have stronger local authority signals.
+When local searchers hit a page that takes more than 3 seconds to open, they click the back button and call the next competitor on the map. Potential clients are actively slipping straight into competitors' pockets.
 
-I put together a quick 90-second video showing the exact searches in your market you're currently missing and 3 quick steps to fix it.
+I put together a quick 90-second video breakdown showing the exact local searches in your market you're currently missing and how to claim those top spots.
 
 Would you be open to taking a look?
 
@@ -125,15 +129,15 @@ Best,
         subject: `Authority gap holding back ${domain}'s Google rankings`,
         body: `Hi ${firstName},
 
-I was analyzing search rankings in your industry and noticed something interesting regarding ${domain}:
+I was analyzing search rankings in your industry and noticed something holding ${domain} back from the top spots on Google:
 
-Your website content and presentation are strong, but Ahrefs currently measures your Domain Rating at ${drDisplay}. The competitors outranking you for your most valuable buyer keywords average significantly higher authority scores.
+Your website content and presentation look great, but Ahrefs currently measures your Domain Rating at ${drDisplay}. The competitors currently outranking you for your most valuable buyer keywords average significantly higher authority scores.
 
-Because reputable industry publications and media sites aren't actively referencing and citing ${company}, Google hesitates to keep you at the top of page 1.
+Because trusted industry publications and media sites aren't actively referencing and citing ${company}, Google hesitates to keep your pages at the top of page 1—meaning high-value customers are finding competitors first.
 
-I mapped out the exact 5 high-authority industry platforms currently sending authority to your top competitors (and how ${company} can get featured on them).
+I mapped out the exact 5 high-authority industry platforms currently sending authority to your top competitors (and how we can get ${company} featured on them).
 
-Do you mind if I send over the 90-second breakdown video?
+Mind if I send over the 2-minute video walkthrough?
 
 Best,
 [Your Name]`,
@@ -142,20 +146,22 @@ Best,
 
     case 'ecommerce_seo':
       return {
-        subject: `Quick conversion note for ${domain}`,
+        subject: `Conversion & speed note for ${domain}`,
         body: `Hi ${firstName},
 
-I was browsing ${domain} and noticed that your mobile product and collection pages are taking about ${lcp} to load (Google mobile score: ${score}/100).
+I was browsing ${domain} on my phone today and noticed a noticeable loading delay that is likely hurting your store's sales and conversion rate.
 
-In e-commerce, every 1-second delay in page load drops conversion rates by up to 7%. Right now, ${bottleneck} is causing shoppers to abandon their carts and buy from faster competitors instead.
+I ran a quick test—your store is currently scoring ${score}/100 on mobile${desktopScore !== null ? ` and ${desktopScore}/100 on desktop` : ''}. In e-commerce, when pages take more than 3 seconds to load, over 50% of mobile shoppers abandon their carts and buy from faster competitors instead.
 
-I recorded a short 90-second screen recording showing the 2 code bottlenecks causing the delay and how to fix them to boost store sales.
+If you are running any ads or SEO campaigns, that ad spend is bleeding out through abandoned visits. The primary bottleneck holding back your load speed is ${bottleneck}.
 
-Can I share the video walkthrough with you?
+I recorded a short 2-minute video showing the 2 code bottlenecks slowing down your store and how to fix them to lift conversion rates.
+
+Can I share the video link with you?
 
 Best,
 [Your Name]`,
-        snippet: `spotted that ${lcp} mobile load time (${score}/100 score) caused by ${bottleneck} is hurting ${domain}'s checkout conversions`
+        snippet: `noticed store pages taking over 3 seconds to load (${score}/100 score) caused by ${bottleneck}`
       };
 
     case 'technical_seo':
@@ -163,13 +169,15 @@ Best,
         subject: `Technical performance notice for ${domain}`,
         body: `Hi ${firstName},
 
-While running a diagnostic audit on ${domain}, I noticed a technical performance bottleneck: your Total Blocking Time (TBT) is currently ${tbt} on mobile (Score: ${score}/100 Mobile${desktopScore !== null ? `, ${desktopScore}/100 Desktop` : ''}).
+While running a diagnostic audit on ${domain}, I noticed a technical performance bottleneck that is likely hurting your Google crawl health and visitor experience.
 
-The main roadblock is ${bottleneck}. When scripts block the browser for this long, Googlebot struggles to crawl new pages efficiently, and mobile visitors experience lag when tapping buttons or menus.
+Right now, the site scores ${score}/100 on mobile${desktopScore !== null ? ` and ${desktopScore}/100 on desktop` : ''}, with Total Blocking Time measured at ${tbt}. The primary culprit is ${bottleneck}.
 
-I put together a 2-minute visual walkthrough showing the exact scripts causing the hold-up and how your developer can resolve it in under 48 hours.
+When code blocks the browser for this long, mobile visitors experience tap delays and assume the site is unresponsive, while Googlebot struggles to crawl and index your newest pages.
 
-Would it be alright if I sent the video over?
+I recorded a quick 2-minute visual walkthrough showing the exact scripts causing the hold-up and how your developer can resolve it in under 48 hours.
+
+Would it be alright if I sent the video link over?
 
 Best,
 [Your Name]`,
@@ -181,13 +189,15 @@ Best,
         subject: `Organic customer acquisition for ${company}`,
         body: `Hi ${firstName},
 
-Most businesses treat SEO like an occasional task, but the fastest-growing companies in your space use Google as their most profitable client acquisition pipeline.
+Most businesses treat SEO like an occasional checklist, but the fastest-growing companies in your space use Google as their primary customer acquisition pipeline.
 
-Right now, ${domain} has strong potential, but your current authority (${drDisplay}) and mobile performance (${score}/100) are allowing competing brands${citySnippet} to capture ready-to-buy customers every day.
+Right now, ${domain} has strong potential, but your current authority (${drDisplay}) and mobile performance (${score}/100) are allowing competing brands${citySnippet} to capture ready-to-buy customers every single day.
 
-We run a full-service monthly SEO system that handles everything—technical fixes, speed optimization, authority building, and content—to systematically take market share from competitors.
+When potential clients search for your services and hit delays over 3 seconds, they click back and hand their business straight to your competitors.
 
-I recorded a 90-second custom growth roadmap showing where ${company} is currently losing traffic and the revenue potential of fixing it.
+We build hands-off, monthly SEO engines that fix technical bottlenecks, build real authority, and systematically take market share from competitors.
+
+I recorded a 2-minute custom growth roadmap showing where ${company} is currently losing traffic and the revenue potential of fixing it.
 
 Mind if I send the video over for you to review?
 
@@ -201,7 +211,7 @@ Best,
         subject: `Is ${company} being recommended by ChatGPT and Google AI?`,
         body: `Hi ${firstName},
 
-A growing number of potential buyers in the ${category} space are now asking ChatGPT, Perplexity, and Google AI Overviews for recommendations instead of clicking traditional search links.
+A rapidly growing number of buyers in the ${category} space are now asking ChatGPT, Perplexity, and Google AI Overviews for recommendations instead of clicking traditional search links.
 
 When AI engines generate recommendations for your services, they prioritize websites with strong authority signals and clear entity citations. Right now, because ${domain}'s Domain Rating is ${drDisplay}, AI models are citing competing brands when buyers ask for recommendations.
 
@@ -219,18 +229,18 @@ Best,
     case 'founder_short':
     default:
       return {
-        subject: `Mobile speed bottleneck on ${domain}`,
+        subject: `Quick note regarding ${domain}'s loading speed`,
         body: `Hi ${firstName},
 
-Ran a quick speed audit on ${domain}—mobile score is currently ${score}/100 with ${lcp} load time due to ${bottleneck}.
+I was looking at ${domain} today and noticed a major loading delay on mobile (${score}/100 score) that is likely handing potential customers straight to your competitors.
 
-This typically inflates bounce rate by ~50%+ on mobile traffic, pushing potential clients to competitors.
+When pages take more than 3 seconds to open, visitors assume it is broken and bounce before seeing your services. The main bottleneck is ${bottleneck}.
 
-Made a short 90-second video showing how to fix it in under 24 hours without redesigning the site—should I send the link over?
+I recorded a quick 2-minute video showing where the issue is and how to fix it without redesigning your site. Mind if I send the link?
 
 Best,
 [Your Name]`,
-        snippet: `mobile score is currently ${score}/100 (${lcp} LCP) caused by ${bottleneck}`
+        snippet: `noticed mobile load delay (${score}/100 score) on ${domain} caused by ${bottleneck}`
       };
   }
 }
@@ -242,14 +252,13 @@ export function buildMailmeteorSnippet(item) {
   if (!item || !item.success) {
     return `noticed a couple of performance bottlenecks on your mobile site that could be hurting conversion`;
   }
-  const score = item.score ?? 35;
-  const lcp = item.metrics?.lcp?.display || '4.5s';
+  const score = item.mobile?.score ?? item.score ?? 35;
   const bottleneck = item.topBottleneck || 'heavy uncompressed assets';
   
   if (score < 50) {
-    return `noticed your mobile score is currently at ${score}/100 with a ${lcp} load time, primarily slowed down by ${bottleneck}`;
+    return `noticed your site takes more than 3 seconds to open on mobile (${score}/100 score), primarily slowed down by ${bottleneck}`;
   } else if (score < 80) {
     return `noticed your mobile speed score is ${score}/100, where ${bottleneck} is adding unnecessary delay`;
   }
-  return `audited your site speed (${score}/100) and spotted a couple of minor Core Web Vitals quick-wins`;
+  return `audited your site speed (${score}/100) and spotted a couple of quick Core Web Vitals optimizations`;
 }
