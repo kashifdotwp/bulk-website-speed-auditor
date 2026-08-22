@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Globe, MapPin, Users, Search, ArrowRight, Building, Sparkles, Filter, Check, Copy } from 'lucide-react';
+import { Globe, MapPin, Users, Search, ArrowRight, Building, Sparkles, Filter, Check, Copy, ExternalLink } from 'lucide-react';
 import { TIER1_GEOGRAPHY } from '../data/geographyData';
 import { LOCAL_BUSINESS_NICHES } from '../data/nichesData';
 
