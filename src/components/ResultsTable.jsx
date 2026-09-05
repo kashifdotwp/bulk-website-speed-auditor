@@ -59,6 +59,7 @@ export default function ResultsTable({
   onToggleSelect,
   onToggleSelectAll,
   onDeleteSingle,
+  onRetryAudit,
   onOpenPitchDrawer,
   onOpenApiKeyModal
 }) {
@@ -68,6 +69,21 @@ export default function ResultsTable({
   const [editingEmailId, setEditingEmailId] = useState(null);
   const [tempEmailInput, setTempEmailInput] = useState('');
   const [manualScrapingIds, setManualScrapingIds] = useState(new Set());
+  const [retryingAuditIds, setRetryingAuditIds] = useState(new Set());
+
+  const handleRetry = async (item) => {
+    if (!onRetryAudit) return;
+    setRetryingAuditIds(prev => new Set(prev).add(item.id));
+    try {
+      await onRetryAudit(item);
+    } finally {
+      setRetryingAuditIds(prev => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  };
 
   const toggleRow = (id) => {
     setExpandedRows(prev => {
@@ -142,7 +158,7 @@ export default function ResultsTable({
 
   return (
     <div className="table-wrapper">
-      <table className="data-table" style={{ minWidth: '1390px' }}>
+      <table className="data-table" style={{ minWidth: '1580px' }}>
         <thead>
           <tr>
             <th style={{ width: '32px', textAlign: 'center', color: 'var(--text-muted)' }}>#</th>
@@ -207,12 +223,14 @@ export default function ResultsTable({
             const isCopied = copiedId === item.id;
 
             if (!item.success) {
+              const isRetryingThis = retryingAuditIds.has(item.id);
+              const failedBg = 'rgba(239, 68, 68, 0.05)';
               return (
-                <tr key={item.id} style={{ background: 'var(--status-critical-bg)' }}>
-                  <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>
+                <tr key={item.id} style={{ background: failedBg }}>
+                  <td style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', background: failedBg }}>
                     #{index + 1}
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td style={{ textAlign: 'center', background: failedBg }}>
                     <input
                       type="checkbox"
                       checked={Boolean(isSelected)}
@@ -220,7 +238,7 @@ export default function ResultsTable({
                       style={{ cursor: 'pointer' }}
                     />
                   </td>
-                  <td style={{ textAlign: 'center' }}>
+                  <td style={{ textAlign: 'center', background: failedBg }}>
                     <button
                       type="button"
                       onClick={() => onToggleShortlist(item.id)}
@@ -229,22 +247,35 @@ export default function ResultsTable({
                       <Star size={16} fill={isStarred ? '#f59e0b' : 'transparent'} />
                     </button>
                   </td>
-                  <td></td>
-                  <td>
+                  <td style={{ background: failedBg }}></td>
+                  <td style={{ background: failedBg }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--status-critical)' }}>{item.domain || item.url}</span>
+                      <span style={{ fontWeight: 600, color: 'var(--status-critical)' }}>{orig.company || item.domain || item.url}</span>
                       <a href={item.url} target="_blank" rel="noreferrer" style={{ fontSize: '0.725rem', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
                         {item.url} <ExternalLink size={10} />
                       </a>
                     </div>
                   </td>
-                  <td colSpan={9} style={{ color: 'var(--status-critical)', fontSize: '0.8rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <AlertTriangle size={15} />
-                      <span>Audit Failed: {item.error || 'Domain unreachable'}</span>
+                  <td colSpan={9} style={{ color: 'var(--status-critical)', fontSize: '0.8rem', background: failedBg }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                        <span>Audit Failed: {item.error || 'Domain unreachable or temporary timeout'}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        style={{ fontSize: '0.75rem', padding: '0.28rem 0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                        onClick={() => handleRetry(item)}
+                        disabled={isRetryingThis}
+                        title="Re-run Google Speed Audit for this website"
+                      >
+                        <RotateCw size={12} className={isRetryingThis ? 'spin' : ''} />
+                        <span>{isRetryingThis ? 'Auditing...' : 'Retry Audit'}</span>
+                      </button>
                     </div>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'center', background: failedBg }}>
                     <button
                       type="button"
                       className="btn btn-secondary"

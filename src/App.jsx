@@ -17,6 +17,7 @@ import NichesView from './components/NichesView';
 import GeographyView from './components/GeographyView';
 
 import { AuditQueueEngine } from './services/queueEngine';
+import { runPageSpeedAudit } from './services/psiApi';
 import { autoDetectCategory } from './services/categories';
 import { scrapeWebsiteEmail } from './services/emailFinder';
 import { fetchDomainRating } from './services/ahrefsApi';
@@ -530,6 +531,35 @@ export default function App() {
     if (newDrMap) setDrMap(newDrMap);
   };
 
+  const handleRetryAudit = async (failedItem) => {
+    const targetUrl = failedItem.url || `https://${failedItem.domain}`;
+    try {
+      const auditData = await runPageSpeedAudit(targetUrl, strategy, apiKey);
+      const updated = {
+        ...auditData,
+        id: failedItem.id,
+        originalData: failedItem.originalData || { website: targetUrl, domain: failedItem.domain }
+      };
+
+      setResults(prev => prev.map(r => r.id === failedItem.id ? updated : r));
+
+      // Auto run email scan & DR fetch on successful retry
+      triggerAutoEmailScrape(updated);
+      if (ahrefsKey) {
+        triggerAhrefsDrFetch(updated, ahrefsKey);
+      }
+      if (updated.cms && updated.cms !== 'Custom') {
+        setCmsMap(prev => ({
+          ...prev,
+          [updated.id]: updated.cms,
+          [updated.domain]: updated.cms
+        }));
+      }
+    } catch (err) {
+      setResults(prev => prev.map(r => r.id === failedItem.id ? { ...r, error: err.message || 'Audit failed on retry' } : r));
+    }
+  };
+
   const handleKeySaved = (newKey) => {
     setApiKey(newKey);
     if (queueEngineRef.current) {
@@ -824,6 +854,7 @@ export default function App() {
                 onToggleSelect={handleToggleSelect}
                 onToggleSelectAll={handleToggleSelectAll}
                 onDeleteSingle={handleDeleteSingle}
+                onRetryAudit={handleRetryAudit}
                 onOpenPitchDrawer={(lead) => setActivePitchLead(lead)}
                 onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
               />

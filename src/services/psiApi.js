@@ -72,33 +72,81 @@ async function fetchGooglePsiStrategy(cleanUrl, strategy, keyPool, signal) {
 
   for (let i = 0; i < keyPool.length; i++) {
     const key = keyPool[i];
-    const params = new URLSearchParams({
-      url: cleanUrl,
-      strategy: strategy.toLowerCase(),
-      category: 'performance',
-      key
-    });
 
-    const startTime = Date.now();
+    // Retry up to 2 times per key for transient Google PSI/Lighthouse glitches
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      if (attempt > 0) {
+        // Wait before retrying (1.2s, then 2.4s) to allow Google Lighthouse queue to clear
+        await new Promise(r => setTimeout(r, attempt * 1200));
+        if (signal?.aborted) throw new Error('Audit cancelled');
+      }
+
+      const params = new URLSearchParams({
+        url: cleanUrl,
+        strategy: strategy.toLowerCase(),
+        category: 'performance',
+        key
+      });
+
+      const startTime = Date.now();
+      try {
+        const response = await fetch(`${PSI_ENDPOINT}?${params.toString()}`, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          signal
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          return parseLighthouseData(data, cleanUrl, strategy, Date.now() - startTime);
+        } else {
+          const errJson = await response.json().catch(() => ({}));
+          const errMsg = errJson?.error?.message || `HTTP ${response.status} from Google PSI`;
+          lastError = new Error(errMsg);
+
+          // If it's a transient server error or rate limit, retry
+          const isTransient = response.status >= 500 || response.status === 429 || errMsg.toLowerCase().includes('something went wrong');
+          if (!isTransient) {
+            // Non-transient client error, break retry loop to try next key
+            break;
+          }
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') throw err;
+        lastError = err;
+      }
+    }
+  }
+
+  // Fallback: If cleanUrl was https:// and it failed, attempt http:// once as fallback
+  // (many local/legacy sites fail SSL handshake inside Google Lighthouse)
+  if (cleanUrl.startsWith('https://')) {
+    const httpUrl = cleanUrl.replace(/^https:\/\//i, 'http://');
     try {
+      const params = new URLSearchParams({
+        url: httpUrl,
+        strategy: strategy.toLowerCase(),
+        category: 'performance',
+        key: keyPool[0]
+      });
+      const startTime = Date.now();
       const response = await fetch(`${PSI_ENDPOINT}?${params.toString()}`, {
         method: 'GET',
         headers: { 'Accept': 'application/json' },
         signal
       });
-
       if (response.ok) {
         const data = await response.json();
-        return parseLighthouseData(data, cleanUrl, strategy, Date.now() - startTime);
-      } else {
-        const errJson = await response.json().catch(() => ({}));
-        const errMsg = errJson?.error?.message || `HTTP ${response.status} from Google PSI`;
-        lastError = new Error(errMsg);
+        return parseLighthouseData(data, httpUrl, strategy, Date.now() - startTime);
       }
-    } catch (err) {
-      if (err.name === 'AbortError') throw err;
-      lastError = err;
+    } catch {
+      // Fallback failed, ignore and throw original error
     }
+  }
+
+  // Format message cleanly for user UI
+  if (lastError?.message && lastError.message.includes('Something went wrong')) {
+    throw new Error('Google PSI temporary timeout (Click Retry to audit)');
   }
 
   throw lastError || new Error(`Google PageSpeed API request failed for ${strategy}`);
