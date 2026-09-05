@@ -138,7 +138,7 @@ export function parseCsvFile(file) {
 /**
  * Formats audited results into a downloadable CSV for Mailmeteor & cold email tools
  */
-export function exportToMailmeteorCsv(auditResults, angleId = 'conversion_risk', emailMap = {}, categoryMap = {}, drMap = {}) {
+export function exportToMailmeteorCsv(auditResults, angleId = 'conversion_risk', emailMap = {}, categoryMap = {}, drMap = {}, cmsMap = {}) {
   if (!auditResults || auditResults.length === 0) return '';
 
   const exportRows = auditResults.map(item => {
@@ -147,17 +147,19 @@ export function exportToMailmeteorCsv(auditResults, angleId = 'conversion_risk',
     const effectiveCatId = categoryMap[item.id] || autoDetectCategory(item);
     const catDef = CATEGORY_DEFINITIONS.find(c => c.id === effectiveCatId) || CATEGORY_DEFINITIONS[4];
     const drVal = drMap[item.id] ?? drMap[item.domain] ?? 'N/A';
+    const cmsVal = cmsMap[item.id] ?? cmsMap[item.domain] ?? item.cms ?? 'Custom';
 
-    const pitch = generatePitch(item, angleId, { ...orig, email: effectiveEmail, ahrefsDr: drVal });
+    const pitch = generatePitch(item, angleId, { ...orig, email: effectiveEmail, ahrefsDr: drVal, cms: cmsVal });
     const snippet = buildMailmeteorSnippet(item);
 
     return {
       Email: effectiveEmail,
       Company: orig.company || item.domain || '',
-      Category: catDef.label,
-      Domain: item.domain || '',
-      Ahrefs_DR: drVal,
       Website_URL: item.url || '',
+      Domain: item.domain || '',
+      CMS_Platform: cmsVal,
+      Ahrefs_DR: drVal,
+      Category: catDef.label,
       Mobile_Score: item.mobile?.score ?? item.score ?? 'N/A',
       Desktop_Score: item.desktop?.score ?? item.desktopScore ?? 'N/A',
       LCP_Seconds: item.metrics?.lcp?.value ?? 'N/A',

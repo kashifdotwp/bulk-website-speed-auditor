@@ -54,6 +54,139 @@ function cleanEmails(rawHtml, domain) {
   return validEmails;
 }
 
+/**
+ * Intelligent CMS / Framework Detection Engine
+ */
+function detectCms(rawHtml) {
+  if (!rawHtml || typeof rawHtml !== 'string') return 'Custom';
+
+  const html = rawHtml.toLowerCase();
+
+  // 1. Shopify
+  if (
+    html.includes('cdn.shopify.com') ||
+    html.includes('shopify.theme') ||
+    html.includes('window.shopify') ||
+    html.includes('myshopify.com') ||
+    html.includes('shopifybuy')
+  ) {
+    return 'Shopify';
+  }
+
+  // 2. WooCommerce (Check before generic WordPress)
+  if (
+    html.includes('woocommerce-') ||
+    html.includes('/plugins/woocommerce/') ||
+    html.includes('wc-cart-fragments') ||
+    html.includes('wc-blocks')
+  ) {
+    return 'WooCommerce';
+  }
+
+  // 3. WordPress
+  if (
+    html.includes('/wp-content/') ||
+    html.includes('/wp-includes/') ||
+    html.includes('name="generator" content="wordpress') ||
+    html.includes('wp-json') ||
+    html.includes('wp-emoji')
+  ) {
+    return 'WordPress';
+  }
+
+  // 4. Next.js
+  if (
+    html.includes('id="__next"') ||
+    html.includes('__next_data__') ||
+    html.includes('/_next/static/') ||
+    html.includes('x-powered-by" content="next.js')
+  ) {
+    return 'Next.js';
+  }
+
+  // 5. Webflow
+  if (
+    html.includes('data-wf-site') ||
+    html.includes('data-wf-page') ||
+    html.includes('assets.website-files.com') ||
+    html.includes('webflow.js')
+  ) {
+    return 'Webflow';
+  }
+
+  // 6. Wix
+  if (
+    html.includes('wixstatic.com') ||
+    html.includes('wix.com/website') ||
+    html.includes('content="wix.com')
+  ) {
+    return 'Wix';
+  }
+
+  // 7. Squarespace
+  if (
+    html.includes('static1.squarespace.com') ||
+    html.includes('squarespace.com') ||
+    html.includes('content="squarespace')
+  ) {
+    return 'Squarespace';
+  }
+
+  // 8. Magento / Adobe Commerce
+  if (
+    html.includes('/static/frontend/magento/') ||
+    html.includes('mage.cookies') ||
+    html.includes('mage/cookies.js')
+  ) {
+    return 'Magento';
+  }
+
+  // 9. BigCommerce
+  if (
+    html.includes('cdn11.bigcommerce.com') ||
+    html.includes('bigcommerce.com') ||
+    html.includes('stencil-')
+  ) {
+    return 'BigCommerce';
+  }
+
+  // 10. HubSpot
+  if (
+    html.includes('hs-scripts.com') ||
+    html.includes('hubspot.com') ||
+    html.includes('content="hubspot')
+  ) {
+    return 'HubSpot';
+  }
+
+  // 11. Drupal
+  if (
+    html.includes('drupal.settings') ||
+    html.includes('/sites/default/files/') ||
+    html.includes('content="drupal')
+  ) {
+    return 'Drupal';
+  }
+
+  // 12. Joomla
+  if (
+    html.includes('content="joomla') ||
+    html.includes('/media/jui/')
+  ) {
+    return 'Joomla';
+  }
+
+  // 13. Ghost
+  if (
+    html.includes('content="ghost') ||
+    html.includes('ghost.org')
+  ) {
+    return 'Ghost';
+  }
+
+  return 'Custom';
+}
+
 export default async function handler(req, res) {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -114,12 +247,14 @@ export default async function handler(req, res) {
 
     const combinedHtml = `${homeHtml} ${contactHtml} ${contactUsHtml} ${aboutHtml}`;
     const emails = cleanEmails(combinedHtml, domain);
+    const cms = detectCms(combinedHtml);
 
     return res.status(200).json({
       success: true,
       domain,
       email: emails[0] || null,
-      allEmails: emails
+      allEmails: emails,
+      cms
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });

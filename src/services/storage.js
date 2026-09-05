@@ -15,6 +15,7 @@ const STORAGE_KEYS = {
   STATUS_MAP: 'nmd_lead_status_map',
   CATEGORY_MAP: 'nmd_lead_category_map',
   EMAIL_MAP: 'nmd_lead_email_map',
+  CMS_MAP: 'nmd_cms_platform_map',
   DR_MAP: 'nmd_ahrefs_dr_map',
   CONCURRENCY: 'nmd_concurrency_pref',
   DELAY_GAP: 'nmd_delay_gap_pref',
@@ -192,6 +193,23 @@ export function loadEmailMap() {
   }
 }
 
+export function saveCmsMap(cmsMap) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CMS_MAP, JSON.stringify(cmsMap || {}));
+  } catch (e) {
+    console.error('Storage error', e);
+  }
+}
+
+export function loadCmsMap() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CMS_MAP);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function saveDrMap(drMap) {
   try {
     localStorage.setItem(STORAGE_KEYS.DR_MAP, JSON.stringify(drMap || {}));
@@ -249,10 +267,10 @@ export function loadPreferences() {
 /**
  * Creates a complete JSON project backup bundle (Zero Data Loss)
  */
-export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey, shortlistOrder, shortlistNotes, shortlistOutreachStatus) {
+export function exportProjectBackup(results, shortlistedIds, leadStatusMap, categoryMap, emailMap, drMap, apiKey, ahrefsKey, shortlistOrder, shortlistNotes, shortlistOutreachStatus, cmsMap) {
   const backupData = {
     appName: 'Needle Mover Detector',
-    version: '2.4.0',
+    version: '2.5.0',
     exportedAt: new Date().toISOString(),
     itemCount: results.length,
     results,
@@ -262,6 +280,7 @@ export function exportProjectBackup(results, shortlistedIds, leadStatusMap, cate
     shortlistOutreachStatus: shortlistOutreachStatus || {},
     leadStatusMap,
     categoryMap: categoryMap || {},
+    cmsMap: cmsMap || {},
     emailMap: emailMap || {},
     drMap: drMap || {},
     hasApiKey: Boolean(apiKey),
@@ -303,6 +322,7 @@ export function parseProjectBackupFile(file) {
           shortlistOutreachStatus: parsed.shortlistOutreachStatus || {},
           leadStatusMap: parsed.leadStatusMap || {},
           categoryMap: parsed.categoryMap || {},
+          cmsMap: parsed.cmsMap || {},
           emailMap: parsed.emailMap || {},
           drMap: parsed.drMap || {},
           exportedAt: parsed.exportedAt

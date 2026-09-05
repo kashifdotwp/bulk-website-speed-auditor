@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { buildMailmeteorSnippet } from '../services/pitchGenerator';
 import { CATEGORY_DEFINITIONS, autoDetectCategory } from '../services/categories';
+import { CMS_DEFINITIONS, getCmsBadge } from '../services/cmsDetector';
 import { scrapeWebsiteEmail } from '../services/emailFinder';
 import { getDrBadgeStyles } from '../services/ahrefsApi';
 
@@ -46,6 +47,8 @@ export default function ResultsTable({
   onChangeLeadStatus,
   categoryMap,
   onChangeCategory,
+  cmsMap,
+  onChangeCms,
   emailMap,
   emailStatusMap,
   drMap,
@@ -155,6 +158,7 @@ export default function ResultsTable({
             <th style={{ width: '35px', textAlign: 'center' }}>⭐</th>
             <th style={{ width: '28px' }}></th>
             <th style={{ minWidth: '210px' }}>Website / Company</th>
+            <th style={{ width: '110px', textAlign: 'center' }}>CMS</th>
             <th style={{ width: '90px', textAlign: 'center' }}>Ahrefs DR</th>
             <th style={{ minWidth: '190px' }}>Contact Email</th>
             <th style={{ width: '120px' }}>Category</th>
@@ -173,6 +177,10 @@ export default function ResultsTable({
             const isSelected = selectedIds?.has(item.id);
             const currentStatusId = leadStatusMap?.[item.id] || 'new';
             const currentStatus = LEAD_STATUS_OPTIONS.find(s => s.id === currentStatusId) || LEAD_STATUS_OPTIONS[0];
+
+            // Resolve CMS
+            const currentCms = cmsMap?.[item.id] ?? cmsMap?.[item.domain] ?? item.cms ?? 'Custom';
+            const cmsBadge = getCmsBadge(currentCms);
 
             // Resolve Category
             const currentCatId = categoryMap?.[item.id] || autoDetectCategory(item);
@@ -230,7 +238,7 @@ export default function ResultsTable({
                       </a>
                     </div>
                   </td>
-                  <td colSpan={8} style={{ color: 'var(--status-critical)', fontSize: '0.8rem' }}>
+                  <td colSpan={9} style={{ color: 'var(--status-critical)', fontSize: '0.8rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <AlertTriangle size={15} />
                       <span>Audit Failed: {item.error || 'Domain unreachable'}</span>
@@ -321,6 +329,36 @@ export default function ResultsTable({
                           </span>
                         )}
                       </div>
+                    </div>
+                  </td>
+
+                  {/* CMS Platform Column */}
+                  <td style={{ textAlign: 'center' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <select
+                        value={cmsBadge.id}
+                        onChange={e => onChangeCms && onChangeCms(item.id, e.target.value)}
+                        style={{
+                          background: cmsBadge.bg,
+                          color: cmsBadge.color,
+                          border: `1px solid ${cmsBadge.border}`,
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.22rem 0.45rem',
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          textAlign: 'center',
+                          maxWidth: '125px'
+                        }}
+                        title={`Detected Platform: ${cmsBadge.label} (Click to change)`}
+                      >
+                        {CMS_DEFINITIONS.map(c => (
+                          <option key={c.id} value={c.id} style={{ background: 'var(--bg-card-solid)', color: 'var(--text-primary)' }}>
+                            {c.icon} {c.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </td>
 
@@ -630,7 +668,7 @@ export default function ResultsTable({
                         type="button"
                         className="btn btn-primary"
                         style={{ fontSize: '0.725rem', padding: '0.3rem 0.55rem' }}
-                        onClick={() => onOpenPitchDrawer({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue })}
+                        onClick={() => onOpenPitchDrawer({ ...item, resolvedEmail: effectiveEmail, ahrefsDr: drValue, cms: currentCms })}
                       >
                         <Mail size={12} />
                         <span>Pitch</span>
@@ -689,14 +727,15 @@ export default function ResultsTable({
                 {/* Expanded Row Diagnostics */}
                 {isExpanded && (
                   <tr>
-                    <td colSpan={13} style={{ background: 'var(--bg-primary)', padding: '1.25rem 1.5rem 1.5rem 2.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <td colSpan={14} style={{ background: 'var(--bg-primary)', padding: '1.25rem 1.5rem 1.5rem 2.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                         {/* Header Link */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                             <span>Official Analysis — {item.domain}</span>
                             <span className="badge badge-indigo">📱 Mobile: {mScore}/100</span>
                             {dScore !== null && <span className="badge badge-cyan">💻 Desktop: {dScore}/100</span>}
+                            <span className="badge" style={{ background: cmsBadge.bg, color: cmsBadge.color, border: `1px solid ${cmsBadge.border}` }}>{cmsBadge.icon} {cmsBadge.label}</span>
                             {drValue !== null && <span className="badge" style={{ background: drStyles.bg, color: drStyles.color, border: `1px solid ${drStyles.border}` }}>📈 Ahrefs DR: {drValue}/100</span>}
                             <span className="badge" style={{ background: currentCat.bg, color: currentCat.color }}>{currentCat.badge}</span>
                             {effectiveEmail && <span className="badge badge-cyan"><Mail size={11} style={{ marginRight: '3px' }} /> {effectiveEmail}</span>}

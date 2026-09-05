@@ -42,6 +42,8 @@ import {
   loadLeadStatusMap,
   saveCategoryMap,
   loadCategoryMap,
+  saveCmsMap,
+  loadCmsMap,
   saveEmailMap,
   loadEmailMap,
   saveDrMap,
@@ -88,6 +90,7 @@ export default function App() {
   const [shortlistOutreachStatus, setShortlistOutreachStatus] = useState(() => loadShortlistOutreachStatus());
   const [leadStatusMap, setLeadStatusMap] = useState(() => loadLeadStatusMap());
   const [categoryMap, setCategoryMap] = useState(() => loadCategoryMap());
+  const [cmsMap, setCmsMap] = useState(() => loadCmsMap());
   const [emailMap, setEmailMap] = useState(() => loadEmailMap());
   const [emailStatusMap, setEmailStatusMap] = useState({});
   const [drMap, setDrMap] = useState(() => loadDrMap());
@@ -167,6 +170,11 @@ export default function App() {
     saveCategoryMap(categoryMap);
   }, [categoryMap]);
 
+  // Sync CMS map
+  useEffect(() => {
+    saveCmsMap(cmsMap);
+  }, [cmsMap]);
+
   // Sync email map
   useEffect(() => {
     saveEmailMap(emailMap);
@@ -196,6 +204,13 @@ export default function App() {
         setEmailStatusMap(prev => ({ ...prev, [id]: 'found' }));
       } else {
         setEmailStatusMap(prev => ({ ...prev, [id]: 'not_found' }));
+      }
+      if (res.cms && res.cms !== 'Custom') {
+        setCmsMap(prev => ({
+          ...prev,
+          [id]: res.cms,
+          [lead.domain]: res.cms
+        }));
       }
     } catch {
       setEmailStatusMap(prev => ({ ...prev, [id]: 'not_found' }));
@@ -275,6 +290,15 @@ export default function App() {
           // Appends newly audited sites in sequence to the END of the list
           return [...prev, newItem];
         });
+
+        // 0. Auto CMS Platform Register (if detected by PSI)
+        if (newItem.cms && newItem.cms !== 'Custom') {
+          setCmsMap(prev => ({
+            ...prev,
+            [newItem.id]: newItem.cms,
+            [newItem.domain]: newItem.cms
+          }));
+        }
 
         // 1. Auto Email Scan
         triggerAutoEmailScrape(newItem);
@@ -409,6 +433,7 @@ export default function App() {
       setShortlistOutreachStatus({});
       setLeadStatusMap({});
       setCategoryMap({});
+      setCmsMap({});
       setEmailMap({});
       setEmailStatusMap({});
       setDrMap({});
@@ -474,6 +499,13 @@ export default function App() {
     }));
   };
 
+  const handleChangeCms = (id, newCms) => {
+    setCmsMap(prev => ({
+      ...prev,
+      [id]: newCms
+    }));
+  };
+
   const handleChangeEmail = (id, newEmail) => {
     setEmailMap(prev => ({
       ...prev,
@@ -485,7 +517,7 @@ export default function App() {
     }));
   };
 
-  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap, newDrMap, newShortlistOrder, newShortlistNotes, newShortlistOutreachStatus) => {
+  const handleRestoreProject = (newResults, newShortlisted, newStatusMap, newCategoryMap, newEmailMap, newDrMap, newShortlistOrder, newShortlistNotes, newShortlistOutreachStatus, newCmsMap) => {
     setResults(newResults);
     setShortlistedIds(newShortlisted);
     if (newShortlistOrder) setShortlistOrder(newShortlistOrder);
@@ -493,6 +525,7 @@ export default function App() {
     if (newShortlistOutreachStatus) setShortlistOutreachStatus(newShortlistOutreachStatus);
     setLeadStatusMap(newStatusMap);
     if (newCategoryMap) setCategoryMap(newCategoryMap);
+    if (newCmsMap) setCmsMap(newCmsMap);
     if (newEmailMap) setEmailMap(newEmailMap);
     if (newDrMap) setDrMap(newDrMap);
   };
@@ -687,6 +720,8 @@ export default function App() {
           onOpenPitch={(lead) => setActivePitchLead(lead)}
           categoryMap={categoryMap}
           onChangeCategory={handleChangeCategory}
+          cmsMap={cmsMap}
+          onChangeCms={handleChangeCms}
           emailMap={emailMap}
           emailStatusMap={emailStatusMap}
           onSaveEmail={handleChangeEmail}
@@ -777,6 +812,8 @@ export default function App() {
                 onChangeLeadStatus={handleChangeLeadStatus}
                 categoryMap={categoryMap}
                 onChangeCategory={handleChangeCategory}
+                cmsMap={cmsMap}
+                onChangeCms={handleChangeCms}
                 emailMap={emailMap}
                 emailStatusMap={emailStatusMap}
                 drMap={drMap}
@@ -815,6 +852,7 @@ export default function App() {
         shortlistOutreachStatus={shortlistOutreachStatus}
         leadStatusMap={leadStatusMap}
         categoryMap={categoryMap}
+        cmsMap={cmsMap}
         emailMap={emailMap}
         drMap={drMap}
         apiKey={apiKey}
@@ -837,6 +875,7 @@ export default function App() {
         emailMap={emailMap}
         categoryMap={categoryMap}
         drMap={drMap}
+        cmsMap={cmsMap}
         defaultAngle={selectedPitchAngle}
       />
     </div>

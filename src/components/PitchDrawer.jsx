@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Check, Send, Mail, Sparkles, ExternalLink, Flame, ShieldAlert } from 'lucide-react';
 import { OUTREACH_ANGLES, generatePitch, buildMailmeteorSnippet } from '../services/pitchGenerator';
+import { getCmsBadge } from '../services/cmsDetector';
 
 export default function PitchDrawer({
   isOpen,
@@ -103,6 +104,11 @@ export default function PitchDrawer({
                   {drValue !== null && drValue !== undefined && (
                     <span className="badge badge-amber" style={{ fontSize: '0.7rem' }}>
                       {String(drValue).startsWith('DR') ? drValue : `DR ${drValue}`}
+                    </span>
+                  )}
+                  {item.cms && item.cms !== 'Custom' && (
+                    <span className="badge" style={{ fontSize: '0.7rem', background: getCmsBadge(item.cms).bg, color: getCmsBadge(item.cms).color, border: `1px solid ${getCmsBadge(item.cms).border}` }}>
+                      {getCmsBadge(item.cms).icon} {getCmsBadge(item.cms).label}
                     </span>
                   )}
                 </div>

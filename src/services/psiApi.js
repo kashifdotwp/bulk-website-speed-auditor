@@ -157,6 +157,7 @@ export async function runPageSpeedAudit(
       outreachPriority: mobileData.outreachPriority,
       leadTier: mobileData.leadTier,
       estimatedBounceIncrease: mobileData.estimatedBounceIncrease,
+      cms: mobileData.detectedCms || desktopData?.detectedCms || null,
       auditDurationMs: totalDuration,
       auditedAt: new Date().toISOString()
     };
@@ -303,9 +304,32 @@ export function parseLighthouseData(psiData, url, strategy, durationMs) {
   else if (lcpSeconds > 4.5) estimatedBounceIncrease = '+74%';
   else if (lcpSeconds > 3) estimatedBounceIncrease = '+32%';
 
+  // Extract CMS / Framework from Lighthouse stackPacks & js-libraries
+  let detectedCms = null;
+  const stackPacks = lighthouse?.stackPacks || [];
+  if (stackPacks.some(sp => sp.id === 'wordpress')) detectedCms = 'WordPress';
+  else if (stackPacks.some(sp => sp.id === 'shopify')) detectedCms = 'Shopify';
+  else if (stackPacks.some(sp => sp.id === 'next.js')) detectedCms = 'Next.js';
+  else if (stackPacks.some(sp => sp.id === 'drupal')) detectedCms = 'Drupal';
+  else if (stackPacks.some(sp => sp.id === 'joomla')) detectedCms = 'Joomla';
+  else if (stackPacks.some(sp => sp.id === 'magento')) detectedCms = 'Magento';
+
+  if (!detectedCms) {
+    const jsLibs = audits['js-libraries']?.details?.items || [];
+    const libIds = jsLibs.map(l => (l.id || l.name || '').toLowerCase());
+    if (libIds.some(id => id.includes('shopify'))) detectedCms = 'Shopify';
+    else if (libIds.some(id => id.includes('woocommerce'))) detectedCms = 'WooCommerce';
+    else if (libIds.some(id => id.includes('wordpress'))) detectedCms = 'WordPress';
+    else if (libIds.some(id => id.includes('next.js') || id === 'next')) detectedCms = 'Next.js';
+    else if (libIds.some(id => id.includes('webflow'))) detectedCms = 'Webflow';
+    else if (libIds.some(id => id.includes('wix'))) detectedCms = 'Wix';
+    else if (libIds.some(id => id.includes('squarespace'))) detectedCms = 'Squarespace';
+  }
+
   return {
     strategy,
     score,
+    detectedCms,
     scoreCategory: score < 50 ? 'poor' : score < 90 ? 'average' : 'good',
     metrics: {
       lcp: {

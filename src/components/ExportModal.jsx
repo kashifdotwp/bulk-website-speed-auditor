@@ -10,6 +10,7 @@ export default function ExportModal({
   emailMap,
   categoryMap,
   drMap,
+  cmsMap,
   defaultAngle = 'conversion_risk'
 }) {
   const [selectedAngle, setSelectedAngle] = useState(defaultAngle);
@@ -18,13 +19,13 @@ export default function ExportModal({
   if (!isOpen || !results || results.length === 0) return null;
 
   const handleDownload = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {});
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {}, cmsMap || {});
     const dateStr = new Date().toISOString().slice(0, 10);
     downloadCsvFile(csvContent, `mailmeteor_speed_leads_${dateStr}.csv`);
   };
 
   const handleCopy = () => {
-    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {});
+    const csvContent = exportToMailmeteorCsv(results, selectedAngle, emailMap || {}, categoryMap || {}, drMap || {}, cmsMap || {});
     navigator.clipboard.writeText(csvContent);
     setCopiedSuccess(true);
     setTimeout(() => setCopiedSuccess(false), 2000);

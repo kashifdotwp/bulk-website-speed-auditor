@@ -12,6 +12,7 @@ export default function ProjectDataModal({
   shortlistOutreachStatus,
   leadStatusMap,
   categoryMap,
+  cmsMap,
   emailMap,
   drMap,
   apiKey,
@@ -35,7 +36,8 @@ export default function ProjectDataModal({
       ahrefsKey,
       shortlistOrder,
       shortlistNotes,
-      shortlistOutreachStatus
+      shortlistOutreachStatus,
+      cmsMap
     );
   };
 
@@ -56,7 +58,8 @@ export default function ProjectDataModal({
           parsed.drMap,
           parsed.shortlistOrder,
           parsed.shortlistNotes,
-          parsed.shortlistOutreachStatus
+          parsed.shortlistOutreachStatus,
+          parsed.cmsMap
         );
         setRestoreStatus({
           type: 'success',

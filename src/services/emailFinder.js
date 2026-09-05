@@ -17,11 +17,12 @@ export async function scrapeWebsiteEmail(url) {
       return {
         success: true,
         email: data.email || null,
-        allEmails: data.allEmails || []
+        allEmails: data.allEmails || [],
+        cms: data.cms || 'Custom'
       };
     }
   } catch (err) {
     console.warn(`Email scraping failed for ${url}:`, err);
   }
-  return { success: false, email: null, allEmails: [] };
+  return { success: false, email: null, allEmails: [], cms: 'Custom' };
 }
